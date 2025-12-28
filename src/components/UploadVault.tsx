@@ -1,31 +1,139 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { UploadZone } from './UploadZone';
 import { UploadProgress } from './UploadProgress';
-import { FileText, Lock, ShieldCheck, RefreshCw } from 'lucide-react';
+import { FileText, Lock, ShieldCheck, RefreshCw, AlertCircle } from 'lucide-react';
+import { uploadFree, uploadPaid, createUploadSession, getCurrentUser, getAuthToken } from '../lib/api';
+import { FREE_MAX_BYTES } from '../lib/constants';
+
+interface UploadResult {
+  txId: string;
+  arweaveUrl: string;
+  fileName: string;
+}
+
 export function UploadVault() {
-  const [status, setStatus] = useState<'idle' | 'uploading' | 'complete'>('idle');
+  const [status, setStatus] = useState<'idle' | 'uploading' | 'complete' | 'error' | 'payment-required'>('idle');
   const [progress, setProgress] = useState(0);
   const [fileName, setFileName] = useState<string>('');
-  const handleFileSelect = (file: File) => {
+  const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
+  const [error, setError] = useState<string>('');
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+  const checkAuth = async () => {
+    const token = getAuthToken();
+    if (token) {
+      const result = await getCurrentUser();
+      setIsAuthenticated(result.data?.authenticated || false);
+    }
+  };
+
+  const handleFileSelect = async (file: File) => {
     setFileName(file.name);
+    setSelectedFile(file);
+    setError('');
+    setStatus('idle');
+
+    const fileSize = file.size;
+
+    // Check if file exceeds free tier
+    if (fileSize > FREE_MAX_BYTES) {
+      // Require authentication and payment
+      if (!isAuthenticated) {
+        setError('Authentication required for files over 100KB. Please sign in first.');
+        setStatus('error');
+        return;
+      }
+
+      // Create payment session
+      try {
+        setStatus('uploading');
+        setProgress(10);
+        const sessionResult = await createUploadSession(fileSize);
+        
+        if (sessionResult.error) {
+          setError(sessionResult.error);
+          setStatus('error');
+          return;
+        }
+
+        if (sessionResult.data?.url) {
+          // Redirect to Stripe checkout
+          window.location.href = sessionResult.data.url;
+          setStatus('payment-required');
+          return;
+        }
+      } catch (err) {
+        setError('Failed to create payment session');
+        setStatus('error');
+        return;
+      }
+    } else {
+      // Free upload
+      await uploadFile(file, null);
+    }
+  };
+
+  const uploadFile = async (file: File, sessionId: string | null) => {
     setStatus('uploading');
-    // Simulate upload
-    let p = 0;
-    const interval = setInterval(() => {
-      p += Math.random() * 5;
-      if (p >= 100) {
-        p = 100;
-        clearInterval(interval);
+    setProgress(20);
+
+    try {
+      let result;
+      
+      if (sessionId) {
+        // Paid upload
+        result = await uploadPaid(file, sessionId);
+      } else {
+        // Free upload
+        result = await uploadFree(file);
+      }
+
+      if (result.error) {
+        setError(result.error);
+        setStatus('error');
+        return;
+      }
+
+      if (result.data?.file) {
+        setProgress(100);
+        setUploadResult({
+          txId: result.data.file.txId,
+          arweaveUrl: result.data.file.arweaveUrl,
+          fileName: result.data.file.fileName,
+        });
         setStatus('complete');
       }
-      setProgress(p);
-    }, 100);
+    } catch (err) {
+      setError('Upload failed. Please try again.');
+      setStatus('error');
+    }
   };
+
+  // Check if returning from Stripe payment
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const sessionId = urlParams.get('session_id');
+    
+    if (sessionId && selectedFile) {
+      uploadFile(selectedFile, sessionId);
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [selectedFile]);
+
   const resetUpload = () => {
     setStatus('idle');
     setProgress(0);
     setFileName('');
+    setUploadResult(null);
+    setError('');
+    setSelectedFile(null);
   };
   return <motion.div initial={{
     opacity: 0,
@@ -108,8 +216,49 @@ export function UploadVault() {
                   </div>
                 </motion.div>
 
+                {/* Error Display */}
+                {status === 'error' && error && <motion.div initial={{
+              opacity: 0,
+              y: 10
+            }} animate={{
+              opacity: 1,
+              y: 0
+            }} className="p-4 bg-red-50 border border-red-200 rounded-xl">
+                    <div className="flex items-center gap-2 text-red-600">
+                      <AlertCircle size={16} />
+                      <p className="text-sm font-medium">{error}</p>
+                    </div>
+                  </motion.div>}
+
                 {/* Progress Animation */}
-                <UploadProgress progress={progress} status={status} />
+                {status === 'uploading' && <UploadProgress progress={progress} status={status} />}
+
+                {/* Success Display */}
+                {status === 'complete' && uploadResult && <motion.div initial={{
+              opacity: 0,
+              y: 10
+            }} animate={{
+              opacity: 1,
+              y: 0
+            }} transition={{
+              delay: 0.3
+            }} className="space-y-4">
+                    <div className="p-4 bg-neonGreen/10 border border-neonGreen/20 rounded-xl">
+                      <p className="text-sm font-medium text-gray-900 mb-2">Upload Complete!</p>
+                      <a 
+                        href={uploadResult.arweaveUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-xs font-mono text-neonPurple hover:underline break-all"
+                      >
+                        {uploadResult.arweaveUrl}
+                      </a>
+                      <p className="text-xs text-gray-500 mt-2 font-mono">
+                        TX ID: {uploadResult.txId}
+                      </p>
+                    </div>
+                    <UploadProgress progress={100} status="complete" />
+                  </motion.div>}
 
                 {/* Success Actions */}
                 {status === 'complete' && <motion.div initial={{

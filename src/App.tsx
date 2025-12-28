@@ -1,9 +1,62 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { GridBackground } from './components/GridBackground';
 import { UploadVault } from './components/UploadVault';
+import { AuthModal } from './components/AuthModal';
 import { motion } from 'framer-motion';
-import { Database, Globe } from 'lucide-react';
+import { Database, LogOut } from 'lucide-react';
+import { getCurrentUser, clearAuthToken, getAuthToken } from './lib/api';
+
 export function App() {
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    checkAuth();
+    
+    // Check for auth token in URL (from magic link redirect)
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    const authError = urlParams.get('auth_error');
+    
+    if (token) {
+      // Token will be handled by AuthModal component
+      // Just clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+    
+    if (authError) {
+      alert(authError);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
+  const checkAuth = async () => {
+    const token = getAuthToken();
+    if (token) {
+      const result = await getCurrentUser();
+      if (result.data?.authenticated && result.data.user) {
+        setIsAuthenticated(true);
+        setUserEmail(result.data.user.email);
+      } else {
+        clearAuthToken();
+        setIsAuthenticated(false);
+        setUserEmail(null);
+      }
+    }
+  };
+
+  const handleLogin = async () => {
+    await checkAuth();
+    setIsAuthModalOpen(false);
+  };
+
+  const handleLogout = () => {
+    clearAuthToken();
+    setIsAuthenticated(false);
+    setUserEmail(null);
+  };
+
   return <div className="relative min-h-screen w-full bg-smokedWhite text-darkText overflow-hidden flex flex-col">
       <GridBackground />
 
@@ -17,9 +70,25 @@ export function App() {
             ARWEAVE<span className="text-neonPurple">.VAULT</span>
           </span>
         </div>
-        <button className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-neonPurple transition-colors font-display tracking-wide">
-          Connect Wallet
-        </button>
+        {isAuthenticated ? (
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-gray-600 font-sans">{userEmail}</span>
+            <button 
+              onClick={handleLogout}
+              className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-neonPurple transition-colors font-display tracking-wide flex items-center gap-2"
+            >
+              <LogOut size={16} />
+              Sign Out
+            </button>
+          </div>
+        ) : (
+          <button 
+            onClick={() => setIsAuthModalOpen(true)}
+            className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-neonPurple transition-colors font-display tracking-wide"
+          >
+            Sign In
+          </button>
+        )}
       </header>
 
       {/* Main Content */}
@@ -84,5 +153,11 @@ export function App() {
           </div>
         </motion.div>
       </main>
+
+      <AuthModal 
+        isOpen={isAuthModalOpen} 
+        onClose={() => setIsAuthModalOpen(false)}
+        onLogin={handleLogin}
+      />
     </div>;
 }
