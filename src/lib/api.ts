@@ -66,7 +66,7 @@ export async function uploadFree(file: File): Promise<ApiResponse<{
     // Wrap the entire operation in a timeout promise race
     // This avoids issues with AbortController signal being checked during body reading
     const timeoutMs = 120000; // 2 minute timeout
-    
+
     const fetchPromise = (async () => {
       const response = await fetch(`${API_BASE}/upload/free`, {
         method: 'POST',
