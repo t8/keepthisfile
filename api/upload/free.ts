@@ -6,6 +6,19 @@ import { readJsonBody } from '../lib/utils.js';
 export default async function handler(req: Request): Promise<Response> {
   console.log('Handler called, method:', req.method);
   
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Max-Age': '86400',
+      },
+    });
+  }
+  
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
       status: 405,
@@ -114,28 +127,18 @@ export default async function handler(req: Request): Promise<Response> {
     responseBody.data.file.id = fileRecordId;
     
     console.log('Preparing response body:', JSON.stringify(responseBody));
-    const responseBodyString = JSON.stringify(responseBody);
-    console.log('Response body stringified, length:', responseBodyString.length);
+    console.log('Returning response now - all operations complete');
     
-    // Create response directly (simpler, might work better)
-    const response = new Response(responseBodyString, {
+    // Use the same pattern as other endpoints (new Response with JSON.stringify)
+    return new Response(JSON.stringify(responseBody), {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
-        'Content-Length': responseBodyString.length.toString(),
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization',
       },
     });
-    
-    console.log('Response created directly, status:', response.status);
-    console.log('Response OK:', response.ok);
-    console.log('Response bodyUsed:', response.bodyUsed);
-    
-    // Return immediately
-    console.log('Returning response now - all operations complete');
-    return response;
   } catch (error: any) {
     console.error('Free upload error:', error);
     console.error('Error details:', {

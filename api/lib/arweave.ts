@@ -75,6 +75,9 @@ async function uploadViaTurbo(
     throw new Error('Turbo not initialized');
   }
   
+  // Add timeout to prevent hanging - but make sure to clear it!
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  
   try {
     console.log('Starting Turbo upload...', {
       dataSize: data.length,
@@ -82,7 +85,6 @@ async function uploadViaTurbo(
       fileName,
     });
     
-    // Add timeout to prevent hanging
     const uploadPromise = turbo.upload({
       data: data,
       dataItemOpts: {
@@ -94,9 +96,9 @@ async function uploadViaTurbo(
       },
     });
     
-    // Set a 60 second timeout
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Turbo upload timeout after 60 seconds')), 60000);
+    // Set a 60 second timeout that we can cancel
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error('Turbo upload timeout after 60 seconds')), 60000);
     });
     
     const result = await Promise.race([uploadPromise, timeoutPromise]) as any;
@@ -120,6 +122,9 @@ async function uploadViaTurbo(
       stack: error?.stack,
     });
     throw error;
+  } finally {
+    // Always clear the timeout to prevent keeping the function alive
+    if (timeoutId) clearTimeout(timeoutId);
   }
 }
 
