@@ -1,8 +1,6 @@
 import { loginOrCreateUser } from '../../lib/auth.js';
 import jwt from 'jsonwebtoken';
-import type { IncomingMessage } from 'http';
-
-type VercelRequest = Request | IncomingMessage;
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
@@ -29,40 +27,29 @@ function getFrontendUrl(): string {
 }
 
 
-export default async function handler(req: VercelRequest): Promise<Response> {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   const startTime = Date.now();
-  console.log('[VERIFY] Handler started, request type:', req instanceof Request ? 'Request' : 'IncomingMessage');
+  console.log('[VERIFY] Handler started');
   
-  const method = req instanceof Request ? req.method : (req as IncomingMessage).method;
-  console.log('[VERIFY] Method:', method);
-  
-  if (method !== 'GET') {
+  if (req.method !== 'GET') {
     console.log('[VERIFY] Method not allowed, returning 405');
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
     console.log('[VERIFY] Parsing URL...');
-    // Construct full URL from request - handle both Request and IncomingMessage
-    let url: URL;
-    if (req instanceof Request) {
-      url = new URL(req.url);
-    } else {
-      const host = (req as IncomingMessage).headers.host || 'localhost:3000';
-      const protocol = (req as IncomingMessage).headers['x-forwarded-proto'] || 'http';
-      const path = (req as IncomingMessage).url || '/';
-      url = new URL(path, `${protocol}://${host}`);
-    }
+    // Construct full URL from request
+    const host = req.headers.host || 'localhost:3000';
+    const protocol = req.headers['x-forwarded-proto'] || 'http';
+    const path = req.url || '/';
+    const url = new URL(path, `${protocol}://${host}`);
     
     let token = url.searchParams.get('token');
     console.log('[VERIFY] Token extracted:', token ? `present (length: ${token.length})` : 'missing');
     
     if (!token) {
       const frontendUrl = getFrontendUrl();
-      return Response.redirect(`${frontendUrl}?auth_error=Invalid verification link`, 302);
+      return res.redirect(`${frontendUrl}?auth_error=Invalid verification link`);
     }
 
     // Decode the token in case it's URL-encoded
@@ -85,13 +72,13 @@ export default async function handler(req: VercelRequest): Promise<Response> {
       console.error('[VERIFY] Token verification failed:', error);
       console.error('[VERIFY] Token value:', token);
       const frontendUrl = getFrontendUrl();
-      return Response.redirect(`${frontendUrl}?auth_error=Link expired or invalid`, 302);
+      return res.redirect(`${frontendUrl}?auth_error=Link expired or invalid`);
     }
 
     if (!decoded.email || decoded.type !== 'magic-link') {
       console.log('[VERIFY] Invalid token type or missing email');
       const frontendUrl = getFrontendUrl();
-      return Response.redirect(`${frontendUrl}?auth_error=Invalid token`, 302);
+      return res.redirect(`${frontendUrl}?auth_error=Invalid token`);
     }
 
     console.log('[VERIFY] Creating/logging in user...');
@@ -143,10 +130,8 @@ export default async function handler(req: VercelRequest): Promise<Response> {
 </html>`;
       
       console.log('[VERIFY] Returning error page');
-      return new Response(errorHtml, {
-        status: 200,
-        headers: { 'Content-Type': 'text/html; charset=utf-8' },
-      });
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.status(200).send(errorHtml);
     }
 
     // Store token in a cookie so the original window can detect it
@@ -196,33 +181,18 @@ export default async function handler(req: VercelRequest): Promise<Response> {
     const elapsed = Date.now() - startTime;
     console.log(`[VERIFY] Handler completed in ${elapsed}ms, returning HTML response (${successHtml.length} bytes)`);
     
-    // Return response with explicit string body - Vercel should handle this correctly
-    const responseHeaders = new Headers({
-      'Content-Type': 'text/html; charset=utf-8',
-      'Set-Cookie': cookie,
-      'Cache-Control': 'no-cache, no-store, must-revalidate',
-    });
+    // Set headers and send HTML response using Node.js style
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Set-Cookie', cookie);
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     
-    console.log('[VERIFY] Creating response with Headers object...');
-    const response = new Response(successHtml, {
-      status: 200,
-      headers: responseHeaders,
-    });
-    
-    console.log('[VERIFY] Response created, status:', response.status);
-    console.log('[VERIFY] Response ok:', response.ok);
-    console.log('[VERIFY] Response bodyUsed:', response.bodyUsed);
-    
-    // Ensure response is sent
-    return response;
+    console.log('[VERIFY] Sending HTML response...');
+    return res.status(200).send(successHtml);
   } catch (error) {
     const errorElapsed = Date.now() - startTime;
     console.error(`[VERIFY] Error after ${errorElapsed}ms:`, error);
     const frontendUrl = getFrontendUrl();
-    return new Response(null, {
-      status: 302,
-      headers: { 'Location': `${frontendUrl}?auth_error=Verification failed` },
-    });
+    return res.redirect(`${frontendUrl}?auth_error=Verification failed`);
   }
 }
 

@@ -1,7 +1,8 @@
 import { sendMagicLink } from '../../lib/email.js';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
-import { readJsonBody, handleCors, jsonResponse } from '../../lib/utils.js';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { readJsonBody } from '../../lib/utils.js';
 
 const requestSchema = z.object({
   email: z.string().email(),
@@ -9,67 +10,87 @@ const requestSchema = z.object({
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
-// Timeout wrapper for email sending
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error('Email sending timeout')), timeoutMs)
-    ),
-  ]);
+function setCorsHeaders(res: VercelResponse) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 }
 
-export default async function handler(req: Request): Promise<Response> {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  console.log('[REQUEST] Handler started');
+  
+  // Set CORS headers on all responses
+  setCorsHeaders(res);
+  
   // Handle CORS preflight
-  const corsResponse = await handleCors(req);
-  if (corsResponse) return corsResponse;
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
 
   if (req.method !== 'POST') {
-    return jsonResponse({ error: 'Method not allowed' }, 405);
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const body = await readJsonBody(req);
+    console.log('[REQUEST] Parsing request body...');
+    // Try Vercel's auto-parsed body first, then fall back to manual parsing
+    let body: { email?: string };
+    if (req.body && typeof req.body === 'object' && 'email' in req.body) {
+      // Vercel auto-parsed the JSON
+      body = req.body as { email?: string };
+      console.log('[REQUEST] Using auto-parsed body');
+    } else {
+      // Manually parse the body
+      body = await readJsonBody(req);
+      console.log('[REQUEST] Manually parsed body');
+    }
+    console.log('[REQUEST] Body:', body);
+    console.log('[REQUEST] Validating...');
     const { email } = requestSchema.parse(body);
 
-    console.log('Magic link request for email:', email);
+    console.log('[REQUEST] Magic link request for email:', email);
 
     // Generate a temporary token for the magic link (expires in 15 minutes)
-    // This token only contains the email, not a user ID
     const tempToken = jwt.sign(
       { email, type: 'magic-link' },
       JWT_SECRET,
       { expiresIn: '15m' }
     );
     
-    console.log('Token generated, sending email...');
+    console.log('[REQUEST] Token generated, sending email...');
     
-    // Send magic link email with 10 second timeout
+    // Send email with timeout - await it so the function doesn't terminate
+    // Use Promise.race to timeout after 8 seconds (email should send faster)
+    const emailPromise = sendMagicLink(email, tempToken);
+    const timeoutPromise = new Promise<void>((resolve) => {
+      setTimeout(() => {
+        console.log('[REQUEST] Email sending timeout - continuing anyway');
+        resolve();
+      }, 8000); // 8 second timeout
+    });
+    
     try {
-      await withTimeout(sendMagicLink(email, tempToken), 10000);
-      console.log('Email sent successfully');
-    } catch (emailError) {
-      console.error('Email sending error:', emailError);
-      // Still return success to user (email might have been sent)
-      // In production, you might want to log this to a monitoring service
+      await Promise.race([emailPromise, timeoutPromise]);
+      console.log('[REQUEST] Email sent successfully');
+    } catch (error) {
+      console.error('[REQUEST] Email sending error:', error);
+      // Continue anyway - email might have been sent
     }
 
-    return jsonResponse({ 
+    // Return success after email attempt (or timeout)
+    console.log('[REQUEST] Returning success response');
+    return res.status(200).json({ 
       success: true, 
       message: 'Magic link sent to your email' 
     });
   } catch (error) {
-    console.error('Magic link request error:', error);
+    console.error('[REQUEST] Magic link request error:', error);
     
     if (error instanceof z.ZodError) {
-      return jsonResponse({ error: 'Invalid email address' }, 400);
+      return res.status(400).json({ error: 'Invalid email address' });
     }
 
-    if (error instanceof Error && error.message === 'Email sending timeout') {
-      return jsonResponse({ error: 'Email service timeout. Please try again.' }, 504);
-    }
-
-    return jsonResponse({ error: 'Failed to send magic link' }, 500);
+    return res.status(500).json({ error: 'Failed to send magic link' });
   }
 }
 

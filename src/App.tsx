@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Routes, Route, useNavigate, useLocation, Link } from 'react-router-dom';
 import { GridBackground } from './components/GridBackground';
 import { UploadVault } from './components/UploadVault';
 import { FileLibrary } from './components/FileLibrary';
@@ -7,16 +8,32 @@ import { motion } from 'framer-motion';
 import { Database, LogOut, Upload, FolderOpen } from 'lucide-react';
 import { getCurrentUser, clearAuthToken, getAuthToken } from './lib/api';
 
-type View = 'upload' | 'library';
-
 export function App() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [currentView, setCurrentView] = useState<View>('upload');
+  const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
-    checkAuth();
+    // Initial auth check on mount
+    checkAuth().finally(() => {
+      setAuthLoading(false);
+    });
+    
+    // Listen for storage events (when token is set in another tab/window from magic link)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'auth-token' && e.newValue) {
+        console.log('[App] Storage event detected, token set, checking auth...');
+        checkAuth();
+      } else if (e.key === 'auth-token' && !e.newValue) {
+        console.log('[App] Storage event detected, token removed');
+        setIsAuthenticated(false);
+        setUserEmail(null);
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
     
     // Check for auth token in URL (from magic link redirect)
     const urlParams = new URLSearchParams(window.location.search);
@@ -33,20 +50,35 @@ export function App() {
       alert(authError);
       window.history.replaceState({}, document.title, window.location.pathname);
     }
-  }, []);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []); // Only run on mount
 
   const checkAuth = async () => {
     const token = getAuthToken();
     if (token) {
-      const result = await getCurrentUser();
-      if (result.data?.authenticated && result.data.user) {
-        setIsAuthenticated(true);
-        setUserEmail(result.data.user.email);
-      } else {
+      try {
+        const result = await getCurrentUser();
+        
+        if (result.data?.authenticated && result.data.user) {
+          setIsAuthenticated(true);
+          setUserEmail(result.data.user.email);
+        } else {
+          clearAuthToken();
+          setIsAuthenticated(false);
+          setUserEmail(null);
+        }
+      } catch (error) {
+        console.error('[App] Auth check error:', error);
         clearAuthToken();
         setIsAuthenticated(false);
         setUserEmail(null);
       }
+    } else {
+      setIsAuthenticated(false);
+      setUserEmail(null);
     }
   };
 
@@ -60,6 +92,19 @@ export function App() {
     setIsAuthenticated(false);
     setUserEmail(null);
   };
+
+  // Show loading state during initial auth check to prevent UI flashing
+  if (authLoading) {
+    return (
+      <div className="relative min-h-screen w-full bg-smokedWhite text-darkText overflow-hidden flex items-center justify-center">
+        <GridBackground />
+        <div className="relative z-10 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-neonPurple mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return <div className="relative min-h-screen w-full bg-smokedWhite text-darkText overflow-hidden flex flex-col">
       <GridBackground />
@@ -77,28 +122,28 @@ export function App() {
         <div className="flex items-center gap-4">
           {isAuthenticated && (
             <nav className="flex items-center gap-2 bg-white/50 backdrop-blur-sm rounded-lg p-1 border border-gray-200">
-              <button
-                onClick={() => setCurrentView('upload')}
+              <Link
+                to="/"
                 className={`px-4 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${
-                  currentView === 'upload'
+                  location.pathname === '/'
                     ? 'bg-neonPurple text-white'
                     : 'text-gray-600 hover:text-neonPurple'
                 }`}
               >
                 <Upload size={16} />
                 Upload
-              </button>
-              <button
-                onClick={() => setCurrentView('library')}
+              </Link>
+              <Link
+                to="/files"
                 className={`px-4 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${
-                  currentView === 'library'
+                  location.pathname === '/files'
                     ? 'bg-neonPurple text-white'
                     : 'text-gray-600 hover:text-neonPurple'
                 }`}
               >
                 <FolderOpen size={16} />
-                Library
-              </button>
+                Files
+              </Link>
             </nav>
           )}
           {isAuthenticated ? (
@@ -148,30 +193,41 @@ export function App() {
           </motion.div>
         </div>
 
-        {currentView === 'upload' ? (
-          <UploadVault 
-            onUploadSuccess={() => {
-              if (isAuthenticated) {
-                setCurrentView('library');
-              }
-            }}
-            onLoginRequest={() => setIsAuthModalOpen(true)}
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <UploadVault 
+                onUploadSuccess={() => {
+                  if (isAuthenticated) {
+                    navigate('/files');
+                  }
+                }}
+                onLoginRequest={() => setIsAuthModalOpen(true)}
+              />
+            }
           />
-        ) : isAuthenticated ? (
-          <div className="w-full max-w-4xl mx-auto">
-            <FileLibrary />
-          </div>
-        ) : (
-          <div className="text-center p-12">
-            <p className="text-gray-600 mb-4">Please sign in to view your file library.</p>
-            <button
-              onClick={() => setIsAuthModalOpen(true)}
-              className="px-6 py-3 bg-neonPurple text-white rounded-lg font-medium hover:bg-neonPurple/90 transition-colors"
-            >
-              Sign In
-            </button>
-          </div>
-        )}
+          <Route
+            path="/files"
+            element={
+              isAuthenticated ? (
+                <div className="w-full max-w-4xl mx-auto">
+                  <FileLibrary />
+                </div>
+              ) : (
+                <div className="text-center p-12">
+                  <p className="text-gray-600 mb-4">Please sign in to view your files.</p>
+                  <button
+                    onClick={() => setIsAuthModalOpen(true)}
+                    className="px-6 py-3 bg-neonPurple text-white rounded-lg font-medium hover:bg-neonPurple/90 transition-colors"
+                  >
+                    Sign In
+                  </button>
+                </div>
+              )
+            }
+          />
+        </Routes>
 
         {/* Footer Stats */}
         <motion.div initial={{

@@ -33,7 +33,15 @@ export async function getCurrentUser(): Promise<ApiResponse<{
       ...(token && { Authorization: `Bearer ${token}` }),
     },
   });
-  return await response.json();
+  const data = await response.json();
+  
+  // Normalize response format - API returns { authenticated, user } directly
+  // but we expect { data: { authenticated, user } }
+  if (data.authenticated !== undefined) {
+    return { data: data };
+  }
+  
+  return data;
 }
 
 // Upload API
@@ -211,7 +219,23 @@ export async function getUserFiles(): Promise<ApiResponse<{
       ...(token && { Authorization: `Bearer ${token}` }),
     },
   });
-  return await response.json();
+  
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}: ${response.statusText}` }));
+    return { error: errorData.error || `Failed to get files with status ${response.status}` };
+  }
+  
+  const result = await response.json();
+  
+  // Normalize response format - API returns { success, files } but we expect { data: { files } }
+  if (result.files) {
+    return {
+      success: result.success,
+      data: { files: result.files },
+    };
+  }
+  
+  return result;
 }
 
 export function setAuthToken(token: string) {

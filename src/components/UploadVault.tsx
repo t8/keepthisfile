@@ -5,7 +5,7 @@ import { UploadProgress } from './UploadProgress';
 import { FilePreview } from './FilePreview';
 import { ShareOptions } from './ShareOptions';
 import { FileText, Lock, ShieldCheck, RefreshCw, AlertCircle } from 'lucide-react';
-import { uploadFree, uploadPaid, createUploadSession, getCurrentUser, getAuthToken } from '../lib/api';
+import { uploadFree, uploadPaid, createUploadSession, getAuthToken } from '../lib/api';
 import { FREE_MAX_BYTES } from '../lib/constants';
 
 interface UploadResult {
@@ -28,21 +28,11 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
   const [fileName, setFileName] = useState<string>('');
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
   const [error, setError] = useState<string>('');
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileMimeType, setFileMimeType] = useState<string>('');
 
-  useEffect(() => {
-    checkAuth();
-  }, []);
-
-  const checkAuth = async () => {
-    const token = getAuthToken();
-    if (token) {
-      const result = await getCurrentUser();
-      setIsAuthenticated(result.data?.authenticated || false);
-    }
-  };
+  // Check authentication by checking if token exists (no API call needed)
+  const isAuthenticated = !!getAuthToken();
 
   const handleFileSelect = async (file: File) => {
     setFileName(file.name);
@@ -139,9 +129,6 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
         });
         setStatus('complete');
         console.log('State updated to complete');
-        
-        // Refresh auth status to ensure we have latest state
-        await checkAuth();
         
         // Notify parent component of successful upload (refresh library)
         if (onUploadSuccess && isAuthenticated) {

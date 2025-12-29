@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Mail, Loader2 } from 'lucide-react';
-import { requestMagicLink, getCurrentUser, setAuthToken, getAuthToken } from '../lib/api';
+import { requestMagicLink, getCurrentUser, setAuthToken, getAuthToken, clearAuthToken } from '../lib/api';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -28,7 +28,6 @@ export function AuthModal({ isOpen, onClose, onLogin }: AuthModalProps) {
         setMessage({ type: 'error', text: result.error });
       } else {
         setEmailSent(true);
-        setMessage({ type: 'success', text: 'Magic link sent! Check your email and click the link, then return to this window.' });
         // Start polling for authentication
         startPolling();
       }
@@ -55,14 +54,20 @@ export function AuthModal({ isOpen, onClose, onLogin }: AuthModalProps) {
     };
     window.addEventListener('storage', handleStorageChange);
     
+    let lastToken: string | null = null;
     const pollInterval = setInterval(async () => {
       try {
         // Check if token was set in localStorage (from the verify page)
         const token = getAuthToken();
-        if (token) {
+        
+        // If token changed, verify authentication
+        if (token && token !== lastToken) {
+          lastToken = token;
+          console.log('[AuthModal] Token detected, verifying authentication...');
           const result = await getCurrentUser();
           if (result.data?.authenticated && result.data.user) {
             // User is now authenticated
+            console.log('[AuthModal] Authentication verified, logging in...');
             clearInterval(pollInterval);
             window.removeEventListener('storage', handleStorageChange);
             setPolling(false);
@@ -70,9 +75,14 @@ export function AuthModal({ isOpen, onClose, onLogin }: AuthModalProps) {
             setEmail('');
             onLogin();
             onClose();
+          } else {
+            console.log('[AuthModal] Token found but authentication failed, clearing token');
+            clearAuthToken();
+            lastToken = null;
           }
         }
       } catch (error) {
+        console.error('[AuthModal] Polling error:', error);
         // Continue polling on error
       }
     }, 2000); // Poll every 2 seconds
@@ -125,20 +135,23 @@ export function AuthModal({ isOpen, onClose, onLogin }: AuthModalProps) {
 
             {emailSent ? (
               <div className="space-y-4">
-                <div className="p-4 bg-neonGreen/10 border border-neonGreen/20 rounded-xl">
-                  <p className="text-sm text-gray-900 mb-2">
-                    Check your email for the magic link.
-                  </p>
-                  <p className="text-sm text-gray-700">
-                    Click the link in your email, then <strong>return to this window</strong>. You'll be signed in automatically.
-                  </p>
-                </div>
-                {polling && (
-                  <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
-                    <Loader2 size={16} className="animate-spin" />
-                    <span>Waiting for you to click the magic link...</span>
+                <div className="flex flex-col items-center justify-center py-8">
+                  <div className="mb-4">
+                    <Loader2 size={48} className="animate-spin text-neonPurple" />
                   </div>
-                )}
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    Go check your email for a confirmation link!
+                  </h3>
+                  <p className="text-sm text-gray-600 text-center mb-4">
+                    Click the link in your email, then return to this window. You'll be signed in automatically.
+                  </p>
+                  {polling && (
+                    <div className="flex items-center justify-center gap-2 text-sm text-gray-500 mt-2">
+                      <Loader2 size={16} className="animate-spin" />
+                      <span>Waiting for you to click the magic link...</span>
+                    </div>
+                  )}
+                </div>
                 <button
                   onClick={() => {
                     setEmailSent(false);
