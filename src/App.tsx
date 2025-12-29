@@ -71,7 +71,7 @@ export function App() {
             <Database size={20} />
           </div>
           <span className="font-display font-bold text-xl tracking-wider">
-            ARWEAVE<span className="text-neonPurple">.VAULT</span>
+            KeepThis<span className="text-neonPurple">File</span>
           </span>
         </div>
         <div className="flex items-center gap-4">

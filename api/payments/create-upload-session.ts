@@ -58,7 +58,7 @@ export default async function handler(req: Request): Promise<Response> {
           price_data: {
             currency: 'usd',
             product_data: {
-              name: 'Arweave File Upload',
+              name: 'KeepThisFile Upload',
               description: `Upload ${(sizeBytes / (1024 * 1024)).toFixed(2)}MB to Arweave`,
             },
             unit_amount: amount,

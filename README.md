@@ -1,4 +1,4 @@
-# Arweave Vault
+# KeepThisFile
 
 A full-stack application for uploading files to Arweave permanently. Features magic link authentication, Stripe payments, and seamless integration with the Arweave permaweb.
 

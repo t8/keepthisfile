@@ -14,15 +14,44 @@ const transporter = nodemailer.createTransport({
 });
 
 export async function sendMagicLink(email: string, token: string): Promise<void> {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:5173');
+  // In production, API routes are on the same domain as the frontend
+  // Use VERCEL_URL if available (includes protocol), otherwise use NEXT_PUBLIC_BASE_URL
+  let baseUrl: string;
   
-  const magicLink = `${baseUrl}/api/auth/magic-link/verify?token=${token}`;
+  if (process.env.VERCEL_URL) {
+    const vercelUrl = process.env.VERCEL_URL;
+    // Check if it's localhost (local dev) - should use http, not https
+    if (vercelUrl.includes('localhost')) {
+      baseUrl = vercelUrl.startsWith('http') ? vercelUrl : `http://${vercelUrl}`;
+    } else {
+      // Production Vercel URL - use https
+      baseUrl = vercelUrl.startsWith('http') ? vercelUrl : `https://${vercelUrl}`;
+    }
+  } else if (process.env.NEXT_PUBLIC_BASE_URL) {
+    baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+  } else {
+    // Local development fallback
+    baseUrl = 'http://localhost:5173';
+  }
+  
+  // Ensure no double slashes in URL
+  const cleanBaseUrl = baseUrl.replace(/\/$/, '');
+  const magicLink = `${cleanBaseUrl}/api/auth/magic-link/verify?token=${token}`;
+  
+  console.log('Magic link email details:', {
+    to: email,
+    baseUrl,
+    cleanBaseUrl,
+    magicLink,
+    VERCEL_URL: process.env.VERCEL_URL,
+    NEXT_PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL,
+    NODE_ENV: process.env.NODE_ENV,
+  });
   
   const mailOptions = {
     from: process.env.SMTP_FROM || process.env.SMTP_USER,
     to: email,
-    subject: 'Sign in to Arweave Vault',
+    subject: 'Sign in to KeepThisFile',
     html: `
       <!DOCTYPE html>
       <html>
@@ -36,7 +65,7 @@ export async function sendMagicLink(email: string, token: string): Promise<void>
         </head>
         <body>
           <div class="container">
-            <h1>Sign in to Arweave Vault</h1>
+            <h1>Sign in to KeepThisFile</h1>
             <p>Click the button below to sign in to your account:</p>
             <a href="${magicLink}" class="button">Sign In</a>
             <p>Or copy and paste this link into your browser:</p>
@@ -49,7 +78,7 @@ export async function sendMagicLink(email: string, token: string): Promise<void>
         </body>
       </html>
     `,
-    text: `Sign in to Arweave Vault: ${magicLink}`,
+    text: `Sign in to KeepThisFile: ${magicLink}`,
   };
   
   await transporter.sendMail(mailOptions);

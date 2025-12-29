@@ -74,7 +74,7 @@ async function uploadViaTurbo(
       dataItemOpts: {
         tags: [
           { name: 'Content-Type', value: contentType },
-          { name: 'App-Name', value: 'ArweaveVault' },
+          { name: 'App-Name', value: 'KeepThisFile' },
           { name: 'Original-Filename', value: fileName },
         ],
       },
@@ -146,7 +146,7 @@ async function uploadViaArweave(
     
     // Add tags
     transaction.addTag('Content-Type', contentType);
-    transaction.addTag('App-Name', 'ArweaveVault');
+    transaction.addTag('App-Name', 'KeepThisFile');
     transaction.addTag('Original-Filename', fileName);
     
     // Sign transaction
