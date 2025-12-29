@@ -1,32 +1,46 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { uploadToArweave } from '../lib/arweave.js';
 import { createFile } from '../lib/models.js';
 import { FREE_MAX_BYTES, MAX_FILE_BYTES } from '../lib/constants.js';
-import { readJsonBody } from '../lib/utils.js';
 
-export default async function handler(req: Request): Promise<Response> {
+// Force Node.js runtime since we use Node.js APIs like Buffer
+export const config = {
+  maxDuration: 60,
+};
+
+function setCorsHeaders(res: VercelResponse) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+}
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   console.log('Handler called, method:', req.method);
   
+  // Set CORS headers on all responses
+  setCorsHeaders(res);
+  
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Max-Age', '86400');
+    return res.status(204).end();
+  }
+  
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    // Parse JSON body with base64 file data
-    const body = await readJsonBody(req) as {
+    // Parse JSON body - Vercel automatically parses JSON bodies
+    const body = req.body as {
       fileData?: string;
       fileName?: string;
       mimeType?: string;
     };
-    console.log('Request body received, has fileData:', !!body.fileData);
+    console.log('Request body received, has fileData:', !!body?.fileData);
     
-    if (!body.fileData || !body.fileName) {
-      return new Response(
-        JSON.stringify({ error: 'Missing fileData or fileName in request body' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+    if (!body?.fileData || !body?.fileName) {
+      return res.status(400).json({ error: 'Missing fileData or fileName in request body' });
     }
 
     // Decode base64 to buffer
@@ -39,10 +53,7 @@ export default async function handler(req: Request): Promise<Response> {
       fileBuffer = Buffer.from(base64Data, 'base64');
     } catch (error) {
       console.error('Failed to decode base64:', error);
-      return new Response(
-        JSON.stringify({ error: 'Invalid base64 file data' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return res.status(400).json({ error: 'Invalid base64 file data' });
     }
 
     const fileSize = fileBuffer.length;
@@ -51,21 +62,15 @@ export default async function handler(req: Request): Promise<Response> {
 
     // Enforce size limits
     if (fileSize > MAX_FILE_BYTES) {
-      return new Response(
-        JSON.stringify({ 
-          error: `File too large. Maximum size is ${MAX_FILE_BYTES / (1024 * 1024)}MB` 
-        }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return res.status(400).json({ 
+        error: `File too large. Maximum size is ${MAX_FILE_BYTES / (1024 * 1024)}MB` 
+      });
     }
 
     if (fileSize > FREE_MAX_BYTES) {
-      return new Response(
-        JSON.stringify({ 
-          error: 'File exceeds free tier limit. Please use the paid upload endpoint.' 
-        }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return res.status(400).json({ 
+        error: 'File exceeds free tier limit. Please use the paid upload endpoint.' 
+      });
     }
 
     // Upload to Arweave
@@ -77,22 +82,7 @@ export default async function handler(req: Request): Promise<Response> {
     );
     console.log('Upload completed:', { txId, arweaveUrl });
 
-    // Prepare response body
-    const responseBody = {
-      success: true,
-      data: {
-        file: {
-          id: 'temp-' + Date.now(),
-          txId,
-          arweaveUrl,
-          sizeBytes: fileSize,
-          fileName: fileName,
-        },
-      },
-    };
-    
-    // Save to DB first (quick operation), then return response
-    // This ensures everything is ready before sending response
+    // Save to DB (non-blocking, but we await it)
     let fileRecordId = 'temp-' + Date.now();
     try {
       const fileRecord = await createFile({
@@ -110,32 +100,24 @@ export default async function handler(req: Request): Promise<Response> {
       // Continue with temp ID
     }
 
-    // Update response with actual file ID
-    responseBody.data.file.id = fileRecordId;
-    
-    console.log('Preparing response body:', JSON.stringify(responseBody));
-    const responseBodyString = JSON.stringify(responseBody);
-    console.log('Response body stringified, length:', responseBodyString.length);
-    
-    // Create response directly (simpler, might work better)
-    const response = new Response(responseBodyString, {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': responseBodyString.length.toString(),
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    // Prepare and send response
+    const responseBody = {
+      success: true,
+      data: {
+        file: {
+          id: fileRecordId,
+          txId,
+          arweaveUrl,
+          sizeBytes: fileSize,
+          fileName: fileName,
+        },
       },
-    });
+    };
     
-    console.log('Response created directly, status:', response.status);
-    console.log('Response OK:', response.ok);
-    console.log('Response bodyUsed:', response.bodyUsed);
+    console.log('Sending response:', JSON.stringify(responseBody));
     
-    // Return immediately
-    console.log('Returning response now - all operations complete');
-    return response;
+    // Use res.json() which properly ends the response
+    return res.status(200).json(responseBody);
   } catch (error: any) {
     console.error('Free upload error:', error);
     console.error('Error details:', {
@@ -143,13 +125,9 @@ export default async function handler(req: Request): Promise<Response> {
       stack: error?.stack,
       name: error?.name,
     });
-    return new Response(
-      JSON.stringify({ 
-        error: error?.message || 'Failed to upload file',
-        details: process.env.NODE_ENV === 'development' ? error?.stack : undefined
-      }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    return res.status(500).json({ 
+      error: error?.message || 'Failed to upload file',
+      details: process.env.NODE_ENV === 'development' ? error?.stack : undefined
+    });
   }
 }
-

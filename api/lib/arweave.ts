@@ -3,60 +3,46 @@ import Arweave from 'arweave';
 import { JWKInterface } from 'arweave/node/lib/wallet';
 import { FREE_MAX_BYTES } from './constants.js';
 
-let turbo: ReturnType<typeof TurboFactory.authenticated> | null = null;
-let signer: ArweaveSigner | null = null;
-let arweave: Arweave | null = null;
-let wallet: JWKInterface | null = null;
+// Cache only the wallet (static data) - NOT the SDK instances
+// SDK instances maintain HTTP connections that can keep serverless functions alive
+let cachedWallet: JWKInterface | null = null;
 
-function initWallet() {
-  if (!wallet && process.env.ARWEAVE_KEY_JSON) {
+function getWallet(): JWKInterface {
+  if (!cachedWallet && process.env.ARWEAVE_KEY_JSON) {
     try {
-      wallet = JSON.parse(process.env.ARWEAVE_KEY_JSON);
+      cachedWallet = JSON.parse(process.env.ARWEAVE_KEY_JSON);
     } catch (error) {
       console.error('Failed to parse ARWEAVE_KEY_JSON:', error);
       throw new Error('Invalid ARWEAVE_KEY_JSON format');
     }
   }
   
-  if (!wallet) {
+  if (!cachedWallet) {
     throw new Error('ARWEAVE_KEY_JSON environment variable is required');
   }
+  
+  return cachedWallet;
 }
 
-function initTurbo() {
-  initWallet();
+// Create fresh Turbo instance each request to avoid connection pooling issues
+function createTurboInstance() {
+  const wallet = getWallet();
+  const signer = new ArweaveSigner(wallet);
+  console.log('ArweaveSigner created successfully');
   
-  if (!signer && wallet) {
-    try {
-      signer = new ArweaveSigner(wallet);
-      console.log('ArweaveSigner created successfully');
-    } catch (error) {
-      console.error('Failed to create ArweaveSigner:', error);
-      throw new Error('Failed to initialize Turbo signer');
-    }
-  }
+  const turbo = TurboFactory.authenticated({ signer });
+  console.log('Turbo initialized successfully');
   
-  if (!turbo && signer) {
-    try {
-      turbo = TurboFactory.authenticated({ signer });
-      console.log('Turbo initialized successfully');
-    } catch (error) {
-      console.error('Failed to initialize Turbo:', error);
-      throw new Error('Failed to initialize Turbo');
-    }
-  }
+  return turbo;
 }
 
-function initArweave() {
-  if (!arweave) {
-    arweave = Arweave.init({
-      host: 'arweave.net',
-      port: 443,
-      protocol: 'https',
-    });
-  }
-  
-  initWallet();
+// Create fresh Arweave instance each request
+function createArweaveInstance() {
+  return Arweave.init({
+    host: 'arweave.net',
+    port: 443,
+    protocol: 'https',
+  });
 }
 
 async function uploadViaTurbo(
@@ -64,16 +50,17 @@ async function uploadViaTurbo(
   contentType: string,
   fileName: string
 ): Promise<{ txId: string; arweaveUrl: string }> {
+  // Create fresh Turbo instance each request to avoid connection pooling
+  let turbo: ReturnType<typeof TurboFactory.authenticated>;
   try {
-    initTurbo();
+    turbo = createTurboInstance();
   } catch (error: any) {
     console.error('Turbo initialization error:', error);
     throw new Error(`Turbo initialization failed: ${error.message}`);
   }
   
-  if (!turbo) {
-    throw new Error('Turbo not initialized');
-  }
+  // Add timeout to prevent hanging - but make sure to clear it!
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
   
   try {
     console.log('Starting Turbo upload...', {
@@ -82,7 +69,6 @@ async function uploadViaTurbo(
       fileName,
     });
     
-    // Add timeout to prevent hanging
     const uploadPromise = turbo.upload({
       data: data,
       dataItemOpts: {
@@ -94,9 +80,9 @@ async function uploadViaTurbo(
       },
     });
     
-    // Set a 60 second timeout
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Turbo upload timeout after 60 seconds')), 60000);
+    // Set a 60 second timeout that we can cancel
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error('Turbo upload timeout after 60 seconds')), 60000);
     });
     
     const result = await Promise.race([uploadPromise, timeoutPromise]) as any;
@@ -120,6 +106,9 @@ async function uploadViaTurbo(
       stack: error?.stack,
     });
     throw error;
+  } finally {
+    // Always clear the timeout to prevent keeping the function alive
+    if (timeoutId) clearTimeout(timeoutId);
   }
 }
 
@@ -128,11 +117,9 @@ async function uploadViaArweave(
   contentType: string,
   fileName: string
 ): Promise<{ txId: string; arweaveUrl: string }> {
-  initArweave();
-  
-  if (!wallet || !arweave) {
-    throw new Error('Arweave wallet not initialized');
-  }
+  // Create fresh instances each request
+  const wallet = getWallet();
+  const arweave = createArweaveInstance();
   
   try {
     // Get wallet address to check balance

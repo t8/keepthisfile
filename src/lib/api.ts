@@ -63,45 +63,52 @@ export async function uploadFree(file: File): Promise<ApiResponse<{
     console.log('File converted, base64 length:', fileData.length);
     console.log('Starting upload request to:', `${API_BASE}/upload/free`);
     
-    // Add timeout to prevent hanging
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
-    
-    const response = await fetch(`${API_BASE}/upload/free`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        fileData,
-        fileName: file.name,
-        mimeType: file.type || 'application/octet-stream',
-      }),
-      signal: controller.signal,
-    }).finally(() => clearTimeout(timeoutId));
+    // Wrap the entire operation in a timeout promise race
+    // This avoids issues with AbortController signal being checked during body reading
+    const timeoutMs = 120000; // 2 minute timeout
 
-    console.log('Response received! Status:', response.status, response.statusText);
-    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+    const fetchPromise = (async () => {
+      const response = await fetch(`${API_BASE}/upload/free`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fileData,
+          fileName: file.name,
+          mimeType: file.type || 'application/octet-stream',
+        }),
+      });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}: ${response.statusText}` }));
-      console.error('Upload failed:', errorData);
-      return { error: errorData.error || `Upload failed with status ${response.status}` };
-    }
+      console.log('Response received! Status:', response.status, response.statusText);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
 
-    const text = await response.text();
-    console.log('Response text:', text);
-    
-    let jsonResponse;
-    try {
-      jsonResponse = JSON.parse(text);
-    } catch (parseError) {
-      console.error('Failed to parse JSON:', parseError, 'Text:', text);
-      return { error: 'Invalid response from server' };
-    }
-    
-    console.log('Parsed upload response:', jsonResponse);
-    return jsonResponse;
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}: ${response.statusText}` }));
+        console.error('Upload failed:', errorData);
+        return { error: errorData.error || `Upload failed with status ${response.status}` };
+      }
+
+      const text = await response.text();
+      console.log('Response text:', text);
+      
+      let jsonResponse;
+      try {
+        jsonResponse = JSON.parse(text);
+      } catch (parseError) {
+        console.error('Failed to parse JSON:', parseError, 'Text:', text);
+        return { error: 'Invalid response from server' };
+      }
+      
+      console.log('Parsed upload response:', jsonResponse);
+      return jsonResponse;
+    })();
+
+    const timeoutPromise = new Promise<ApiResponse<any>>((_, reject) => {
+      setTimeout(() => reject(new Error('Upload timed out after 2 minutes')), timeoutMs);
+    });
+
+    return await Promise.race([fetchPromise, timeoutPromise]);
   } catch (error: any) {
     console.error('Upload exception:', error);
     return { 
