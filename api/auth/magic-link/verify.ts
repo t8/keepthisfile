@@ -1,4 +1,4 @@
-import { loginOrCreateUser } from '../../lib/auth';
+import { loginOrCreateUser } from '../../lib/auth.js';
 import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';

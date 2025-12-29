@@ -12,7 +12,11 @@ interface UploadResult {
   fileName: string;
 }
 
-export function UploadVault() {
+interface UploadVaultProps {
+  onUploadSuccess?: () => void;
+}
+
+export function UploadVault({ onUploadSuccess }: UploadVaultProps) {
   const [status, setStatus] = useState<'idle' | 'uploading' | 'complete' | 'error' | 'payment-required'>('idle');
   const [progress, setProgress] = useState(0);
   const [fileName, setFileName] = useState<string>('');
@@ -80,6 +84,7 @@ export function UploadVault() {
   };
 
   const uploadFile = async (file: File, sessionId: string | null) => {
+    console.log('uploadFile called with:', { fileName: file.name, sessionId });
     setStatus('uploading');
     setProgress(20);
 
@@ -88,30 +93,68 @@ export function UploadVault() {
       
       if (sessionId) {
         // Paid upload
+        console.log('Calling uploadPaid...');
         result = await uploadPaid(file, sessionId);
       } else {
         // Free upload
+        console.log('Calling uploadFree...');
         result = await uploadFree(file);
       }
 
-      if (result.error) {
+      console.log('Upload result received:', result);
+      console.log('Result type:', typeof result);
+      console.log('Result keys:', Object.keys(result || {}));
+      
+      if (result?.error) {
+        console.error('Upload API error:', result.error);
         setError(result.error);
         setStatus('error');
+        setProgress(0);
         return;
       }
 
-      if (result.data?.file) {
+      // Handle both response formats for compatibility
+      const fileData = result?.data?.file || result?.file;
+      
+      console.log('Extracted fileData:', fileData);
+      
+      if (fileData && fileData.txId && fileData.arweaveUrl) {
+        console.log('Upload successful! Setting state...');
         setProgress(100);
         setUploadResult({
-          txId: result.data.file.txId,
-          arweaveUrl: result.data.file.arweaveUrl,
-          fileName: result.data.file.fileName,
+          txId: fileData.txId,
+          arweaveUrl: fileData.arweaveUrl,
+          fileName: fileData.fileName || file.name,
         });
         setStatus('complete');
+        console.log('State updated to complete');
+        
+        // Notify parent component of successful upload
+        if (onUploadSuccess) {
+          console.log('Calling onUploadSuccess callback');
+          setTimeout(() => {
+            console.log('Executing onUploadSuccess');
+            onUploadSuccess();
+          }, 1000);
+        }
+      } else {
+        console.error('Unexpected response format:', result);
+        console.error('File data check:', {
+          hasFileData: !!fileData,
+          hasTxId: !!fileData?.txId,
+          hasArweaveUrl: !!fileData?.arweaveUrl,
+          fileDataKeys: fileData ? Object.keys(fileData) : 'null',
+        });
+        setError('Unexpected response from server. Check console for details.');
+        setStatus('error');
+        setProgress(0);
       }
-    } catch (err) {
-      setError('Upload failed. Please try again.');
+    } catch (err: any) {
+      console.error('Upload exception:', err);
+      console.error('Error stack:', err?.stack);
+      setError(err?.message || 'Upload failed. Please try again.');
       setStatus('error');
+      setProgress(0);
     }
   };
 

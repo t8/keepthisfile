@@ -1,5 +1,5 @@
-import { getCurrentUser } from './lib/auth';
-import { getUserByEmail } from './lib/models';
+import { getCurrentUser } from './lib/auth.js';
+import { getUserByEmail } from './lib/models.js';
 
 export default async function handler(req: Request): Promise<Response> {
   if (req.method !== 'GET') {

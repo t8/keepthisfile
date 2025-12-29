@@ -1,18 +1,14 @@
+import { TurboFactory, ArweaveSigner } from '@ardrive/turbo-sdk';
 import Arweave from 'arweave';
 import { JWKInterface } from 'arweave/node/lib/wallet';
+import { FREE_MAX_BYTES } from './constants.js';
 
-let arweave: Arweave;
+let turbo: ReturnType<typeof TurboFactory.authenticated> | null = null;
+let signer: ArweaveSigner | null = null;
+let arweave: Arweave | null = null;
 let wallet: JWKInterface | null = null;
 
-export function initArweave() {
-  if (!arweave) {
-    arweave = Arweave.init({
-      host: 'arweave.net',
-      port: 443,
-      protocol: 'https',
-    });
-  }
-  
+function initWallet() {
   if (!wallet && process.env.ARWEAVE_KEY_JSON) {
     try {
       wallet = JSON.parse(process.env.ARWEAVE_KEY_JSON);
@@ -27,43 +23,195 @@ export function initArweave() {
   }
 }
 
-export async function uploadToArweave(
+function initTurbo() {
+  initWallet();
+  
+  if (!signer && wallet) {
+    try {
+      signer = new ArweaveSigner(wallet);
+      console.log('ArweaveSigner created successfully');
+    } catch (error) {
+      console.error('Failed to create ArweaveSigner:', error);
+      throw new Error('Failed to initialize Turbo signer');
+    }
+  }
+  
+  if (!turbo && signer) {
+    try {
+      turbo = TurboFactory.authenticated({ signer });
+      console.log('Turbo initialized successfully');
+    } catch (error) {
+      console.error('Failed to initialize Turbo:', error);
+      throw new Error('Failed to initialize Turbo');
+    }
+  }
+}
+
+function initArweave() {
+  if (!arweave) {
+    arweave = Arweave.init({
+      host: 'arweave.net',
+      port: 443,
+      protocol: 'https',
+    });
+  }
+  
+  initWallet();
+}
+
+async function uploadViaTurbo(
+  data: Buffer,
+  contentType: string,
+  fileName: string
+): Promise<{ txId: string; arweaveUrl: string }> {
+  try {
+    initTurbo();
+  } catch (error: any) {
+    console.error('Turbo initialization error:', error);
+    throw new Error(`Turbo initialization failed: ${error.message}`);
+  }
+  
+  if (!turbo) {
+    throw new Error('Turbo not initialized');
+  }
+  
+  try {
+    console.log('Starting Turbo upload...', {
+      dataSize: data.length,
+      contentType,
+      fileName,
+    });
+    
+    // Add timeout to prevent hanging
+    const uploadPromise = turbo.upload({
+      data: data,
+      dataItemOpts: {
+        tags: [
+          { name: 'Content-Type', value: contentType },
+          { name: 'App-Name', value: 'ArweaveVault' },
+          { name: 'Original-Filename', value: fileName },
+        ],
+      },
+    });
+    
+    // Set a 60 second timeout
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Turbo upload timeout after 60 seconds')), 60000);
+    });
+    
+    const result = await Promise.race([uploadPromise, timeoutPromise]) as any;
+    
+    console.log('Turbo upload completed:', {
+      id: result.id,
+      owner: result.owner,
+    });
+    
+    const dataItemId = result.id;
+    const arweaveUrl = `https://arweave.net/${dataItemId}`;
+    
+    return { 
+      txId: dataItemId, 
+      arweaveUrl 
+    };
+  } catch (error: any) {
+    console.error('Turbo upload error details:', {
+      message: error?.message,
+      name: error?.name,
+      stack: error?.stack,
+    });
+    throw error;
+  }
+}
+
+async function uploadViaArweave(
   data: Buffer,
   contentType: string,
   fileName: string
 ): Promise<{ txId: string; arweaveUrl: string }> {
   initArweave();
   
-  if (!wallet) {
+  if (!wallet || !arweave) {
     throw new Error('Arweave wallet not initialized');
   }
   
-  // Create transaction
-  const transaction = await arweave.createTransaction(
-    {
-      data: data,
-    },
-    wallet
-  );
-  
-  // Add tags
-  transaction.addTag('Content-Type', contentType);
-  transaction.addTag('App-Name', 'ArweaveVault');
-  transaction.addTag('Original-Filename', fileName);
-  
-  // Sign transaction
-  await arweave.transactions.sign(transaction, wallet);
-  
-  // Upload transaction
-  const uploader = await arweave.transactions.getUploader(transaction);
-  
-  while (!uploader.isComplete) {
-    await uploader.uploadChunk();
+  try {
+    // Get wallet address to check balance
+    const walletAddress = await arweave.wallets.jwkToAddress(wallet);
+    const balance = await arweave.wallets.getBalance(walletAddress);
+    const winstonBalance = BigInt(balance);
+    
+    // Calculate transaction cost
+    const dataSize = data.length;
+    const reward = await arweave.transactions.getPrice(dataSize);
+    const rewardBigInt = BigInt(reward);
+    
+    if (winstonBalance < rewardBigInt) {
+      throw new Error(`Insufficient AR balance. Need ${reward} winston, have ${balance} winston`);
+    }
+    
+    // Create transaction
+    const transaction = await arweave.createTransaction(
+      {
+        data: data,
+      },
+      wallet
+    );
+    
+    // Add tags
+    transaction.addTag('Content-Type', contentType);
+    transaction.addTag('App-Name', 'ArweaveVault');
+    transaction.addTag('Original-Filename', fileName);
+    
+    // Sign transaction
+    await arweave.transactions.sign(transaction, wallet);
+    
+    // Verify transaction before uploading
+    const isValid = await arweave.transactions.verify(transaction);
+    if (!isValid) {
+      throw new Error('Transaction verification failed after signing. Check wallet key and transaction data.');
+    }
+    
+    // Upload transaction
+    const uploader = await arweave.transactions.getUploader(transaction);
+    
+    while (!uploader.isComplete) {
+      await uploader.uploadChunk();
+    }
+    
+    const txId = transaction.id;
+    const arweaveUrl = `https://arweave.net/${txId}`;
+    
+    return { txId, arweaveUrl };
+  } catch (error: any) {
+    console.error('Arweave upload error:', error);
+    if (error.message) {
+      throw new Error(`Arweave upload failed: ${error.message}`);
+    }
+    throw new Error('Arweave upload failed: Unknown error');
   }
+}
+
+export async function uploadToArweave(
+  data: Buffer,
+  contentType: string,
+  fileName: string
+): Promise<{ txId: string; arweaveUrl: string }> {
+  const dataSize = data.length;
   
-  const txId = transaction.id;
-  const arweaveUrl = `https://arweave.net/${txId}`;
-  
-  return { txId, arweaveUrl };
+  // Use Turbo for files under the free threshold (100KB)
+  // Use direct Arweave upload for larger files (charges wallet AR balance)
+  if (dataSize <= FREE_MAX_BYTES) {
+    try {
+      console.log(`Using Turbo (free) for file size: ${dataSize} bytes`);
+      return await uploadViaTurbo(data, contentType, fileName);
+    } catch (error: any) {
+      console.error('Turbo upload failed, falling back to Arweave:', error);
+      // Fallback to Arweave if Turbo fails
+      return await uploadViaArweave(data, contentType, fileName);
+    }
+  } else {
+    console.log(`Using Arweave (paid) for file size: ${dataSize} bytes`);
+    return await uploadViaArweave(data, contentType, fileName);
+  }
 }
 

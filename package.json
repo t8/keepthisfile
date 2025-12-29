@@ -3,6 +3,9 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "dev": "npx vite",
     "build": "npx vite build",
@@ -10,37 +13,40 @@
     "preview": "npx vite preview"
   },
   "dependencies": {
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "@ardrive/turbo-sdk": "^1.39.2",
+    "arweave": "^1.14.4",
+    "bcryptjs": "^2.4.3",
+    "busboy": "^1.6.0",
+    "crypto": "^1.0.1",
     "framer-motion": "^11.5.4",
+    "jsonwebtoken": "^9.0.2",
     "lucide-react": "0.522.0",
     "mongodb": "^6.3.0",
     "mongoose": "^8.0.3",
+    "nodemailer": "^7.0.12",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "stripe": "^14.9.0",
-    "arweave": "^1.14.4",
-    "jsonwebtoken": "^9.0.2",
-    "bcryptjs": "^2.4.3",
-    "crypto": "^1.0.1",
-    "nodemailer": "^6.9.7",
     "zod": "^3.22.4"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/busboy": "^1.5.4",
+    "@types/jsonwebtoken": "^9.0.5",
     "@types/node": "^20.11.18",
+    "@types/nodemailer": "^6.4.14",
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.1",
     "@typescript-eslint/eslint-plugin": "^5.54.0",
     "@typescript-eslint/parser": "^5.54.0",
     "@vitejs/plugin-react": "^4.2.1",
-    "@types/jsonwebtoken": "^9.0.5",
-    "@types/bcryptjs": "^2.4.6",
-    "@types/nodemailer": "^6.4.14",
+    "autoprefixer": "latest",
     "eslint": "^8.50.0",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.1",
-    "typescript": "^5.5.4",
-    "vite": "^5.2.0",
+    "postcss": "latest",
     "tailwindcss": "3.4.17",
-    "autoprefixer": "latest",
-    "postcss": "latest"
+    "typescript": "^5.5.4",
+    "vite": "^7.3.0"
   }
 }

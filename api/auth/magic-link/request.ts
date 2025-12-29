@@ -1,4 +1,4 @@
-import { sendMagicLink } from '../../lib/email';
+import { sendMagicLink } from '../../lib/email.js';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 

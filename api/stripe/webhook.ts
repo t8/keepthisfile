@@ -1,6 +1,6 @@
-import { stripe } from '../lib/stripe';
-import { getUploadRequestBySessionId, updateUploadRequestStatus } from '../lib/models';
-import { FREE_MAX_BYTES, MAX_FILE_BYTES } from '../lib/constants';
+import { stripe } from '../lib/stripe.js';
+import { getUploadRequestBySessionId, updateUploadRequestStatus } from '../lib/models.js';
+import { FREE_MAX_BYTES, MAX_FILE_BYTES } from '../lib/constants.js';
 
 export default async function handler(req: Request): Promise<Response> {
   if (req.method !== 'POST') {

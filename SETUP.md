@@ -2,35 +2,34 @@
 
 ## Local Development
 
-For local development, you have two options:
+**Important:** Use `vercel dev` to run both frontend and API together. This is the recommended approach.
 
-### Option 1: Use Vercel CLI (Recommended)
+### Setup Steps
 
-1. Install Vercel CLI:
+1. Install Vercel CLI (if not already installed):
 ```bash
 npm i -g vercel
 ```
 
-2. Run Vercel dev (this will run both frontend and API):
+2. Run Vercel dev (this serves both frontend and API routes):
 ```bash
 vercel dev
 ```
 
-This will start the app with API routes working locally.
+Vercel dev will:
+- Serve your Vite frontend
+- Handle all `/api/*` routes as serverless functions
+- Provide hot reloading for both frontend and backend
 
-### Option 2: Separate Dev Servers
+**Note:** When using `vercel dev`, you don't need to run `npm run dev` separately. Vercel dev handles everything.
 
-1. For the frontend, run:
-```bash
-npm run dev
-```
+### Troubleshooting
 
-2. For the API (using Vercel CLI):
-```bash
-vercel dev --listen 3000
-```
-
-The Vite proxy is configured to forward `/api/*` requests to `http://localhost:3000`.
+If API requests are hanging:
+1. Make sure you're using `vercel dev` (not `npm run dev`)
+2. Check that your `.env.local` file has all required variables
+3. Restart `vercel dev` if you've made changes to environment variables
+4. Check the terminal for any error messages
 
 ## Environment Variables
 

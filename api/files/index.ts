@@ -1,5 +1,5 @@
-import { requireAuth } from '../lib/auth';
-import { getFilesByUserId } from '../lib/models';
+import { requireAuth } from '../lib/auth.js';
+import { getFilesByUserId } from '../lib/models.js';
 
 export default async function handler(req: Request): Promise<Response> {
   if (req.method !== 'GET') {

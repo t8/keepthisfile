@@ -1,15 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { GridBackground } from './components/GridBackground';
 import { UploadVault } from './components/UploadVault';
+import { FileLibrary } from './components/FileLibrary';
 import { AuthModal } from './components/AuthModal';
 import { motion } from 'framer-motion';
-import { Database, LogOut } from 'lucide-react';
+import { Database, LogOut, Upload, FolderOpen } from 'lucide-react';
 import { getCurrentUser, clearAuthToken, getAuthToken } from './lib/api';
+
+type View = 'upload' | 'library';
 
 export function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [currentView, setCurrentView] = useState<View>('upload');
 
   useEffect(() => {
     checkAuth();
@@ -70,25 +74,53 @@ export function App() {
             ARWEAVE<span className="text-neonPurple">.VAULT</span>
           </span>
         </div>
-        {isAuthenticated ? (
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-600 font-sans">{userEmail}</span>
+        <div className="flex items-center gap-4">
+          {isAuthenticated && (
+            <nav className="flex items-center gap-2 bg-white/50 backdrop-blur-sm rounded-lg p-1 border border-gray-200">
+              <button
+                onClick={() => setCurrentView('upload')}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${
+                  currentView === 'upload'
+                    ? 'bg-neonPurple text-white'
+                    : 'text-gray-600 hover:text-neonPurple'
+                }`}
+              >
+                <Upload size={16} />
+                Upload
+              </button>
+              <button
+                onClick={() => setCurrentView('library')}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${
+                  currentView === 'library'
+                    ? 'bg-neonPurple text-white'
+                    : 'text-gray-600 hover:text-neonPurple'
+                }`}
+              >
+                <FolderOpen size={16} />
+                Library
+              </button>
+            </nav>
+          )}
+          {isAuthenticated ? (
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-gray-600 font-sans">{userEmail}</span>
+              <button 
+                onClick={handleLogout}
+                className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-neonPurple transition-colors font-display tracking-wide flex items-center gap-2"
+              >
+                <LogOut size={16} />
+                Sign Out
+              </button>
+            </div>
+          ) : (
             <button 
-              onClick={handleLogout}
-              className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-neonPurple transition-colors font-display tracking-wide flex items-center gap-2"
+              onClick={() => setIsAuthModalOpen(true)}
+              className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-neonPurple transition-colors font-display tracking-wide"
             >
-              <LogOut size={16} />
-              Sign Out
+              Sign In
             </button>
-          </div>
-        ) : (
-          <button 
-            onClick={() => setIsAuthModalOpen(true)}
-            className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-neonPurple transition-colors font-display tracking-wide"
-          >
-            Sign In
-          </button>
-        )}
+          )}
+        </div>
       </header>
 
       {/* Main Content */}
@@ -116,7 +148,23 @@ export function App() {
           </motion.div>
         </div>
 
-        <UploadVault />
+        {currentView === 'upload' ? (
+          <UploadVault onUploadSuccess={() => setCurrentView('library')} />
+        ) : isAuthenticated ? (
+          <div className="w-full max-w-4xl mx-auto">
+            <FileLibrary />
+          </div>
+        ) : (
+          <div className="text-center p-12">
+            <p className="text-gray-600 mb-4">Please sign in to view your file library.</p>
+            <button
+              onClick={() => setIsAuthModalOpen(true)}
+              className="px-6 py-3 bg-neonPurple text-white rounded-lg font-medium hover:bg-neonPurple/90 transition-colors"
+            >
+              Sign In
+            </button>
+          </div>
+        )}
 
         {/* Footer Stats */}
         <motion.div initial={{

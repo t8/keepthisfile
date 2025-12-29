@@ -1,6 +1,8 @@
-import { uploadToArweave } from '../lib/arweave';
-import { createFile } from '../lib/models';
-import { FREE_MAX_BYTES, MAX_FILE_BYTES } from '../lib/constants';
+import { uploadToArweave } from '../lib/arweave.js';
+import { createFile } from '../lib/models.js';
+import { FREE_MAX_BYTES, MAX_FILE_BYTES } from '../lib/constants.js';
+import { parseMultipartFormData } from '../lib/multipart.js';
+import { jsonResponse } from '../lib/utils.js';
 
 export default async function handler(req: Request): Promise<Response> {
   if (req.method !== 'POST') {
@@ -11,8 +13,10 @@ export default async function handler(req: Request): Promise<Response> {
   }
 
   try {
-    const formData = await req.formData();
-    const file = formData.get('file') as File;
+    console.log('Parsing multipart form data...');
+    const parseResult = await parseMultipartFormData(req);
+    console.log('Multipart parsing complete, file:', parseResult.file ? 'present' : 'missing');
+    const { file } = parseResult;
 
     if (!file) {
       return new Response(
@@ -22,7 +26,7 @@ export default async function handler(req: Request): Promise<Response> {
     }
 
     const fileSize = file.size;
-    const fileBuffer = Buffer.from(await file.arrayBuffer());
+    const fileBuffer = file.buffer;
 
     // Enforce size limits
     if (fileSize > MAX_FILE_BYTES) {
@@ -44,42 +48,67 @@ export default async function handler(req: Request): Promise<Response> {
     }
 
     // Upload to Arweave
+    console.log('Starting upload to Arweave...');
     const { txId, arweaveUrl } = await uploadToArweave(
       fileBuffer,
-      file.type || 'application/octet-stream',
-      file.name
+      file.mimetype,
+      file.originalFilename
     );
+    console.log('Upload completed:', { txId, arweaveUrl });
 
-    // Save file record (anonymous, no userId)
-    const fileRecord = await createFile({
-      userId: null,
-      arweaveTxId: txId,
-      arweaveUrl,
-      sizeBytes: fileSize,
-      mimeType: file.type || 'application/octet-stream',
-      originalFileName: file.name,
-    });
-
-    return new Response(
-      JSON.stringify({
-        success: true,
+    // Prepare response body
+    const responseBody = {
+      success: true,
+      data: {
         file: {
-          id: fileRecord._id,
+          id: 'temp-' + Date.now(),
           txId,
           arweaveUrl,
           sizeBytes: fileSize,
-          fileName: file.name,
+          fileName: file.originalFilename,
         },
-      }),
-      {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }
-    );
-  } catch (error) {
+      },
+    };
+    
+    // Save to DB first (quick operation), then return response
+    // This ensures everything is ready before sending response
+    let fileRecordId = 'temp-' + Date.now();
+    try {
+      const fileRecord = await createFile({
+        userId: null,
+        arweaveTxId: txId,
+        arweaveUrl,
+        sizeBytes: fileSize,
+        mimeType: file.mimetype,
+        originalFileName: file.originalFilename,
+      });
+      fileRecordId = fileRecord._id || fileRecordId;
+      console.log('File record saved:', fileRecordId);
+    } catch (dbError: any) {
+      console.error('Database save error (non-critical):', dbError?.message);
+      // Continue with temp ID
+    }
+
+    // Update response with actual file ID
+    responseBody.data.file.id = fileRecordId;
+    
+    console.log('Returning success response with file data');
+    const response = jsonResponse(responseBody, 200);
+    console.log('Response created, status:', response.status);
+    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+    return response;
+  } catch (error: any) {
     console.error('Free upload error:', error);
+    console.error('Error details:', {
+      message: error?.message,
+      stack: error?.stack,
+      name: error?.name,
+    });
     return new Response(
-      JSON.stringify({ error: 'Failed to upload file' }),
+      JSON.stringify({ 
+        error: error?.message || 'Failed to upload file',
+        details: process.env.NODE_ENV === 'development' ? error?.stack : undefined
+      }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }

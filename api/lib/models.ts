@@ -1,4 +1,4 @@
-import clientPromise from './db';
+import clientPromise from './db.js';
 
 export interface User {
   _id?: string;

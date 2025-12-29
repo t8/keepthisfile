@@ -1,7 +1,7 @@
-import { requireAuth } from '../lib/auth';
-import { createUploadRequest } from '../lib/models';
-import { stripe, calculatePrice } from '../lib/stripe';
-import { FREE_MAX_BYTES, MAX_FILE_BYTES } from '../lib/constants';
+import { requireAuth } from '../lib/auth.js';
+import { createUploadRequest } from '../lib/models.js';
+import { stripe, calculatePrice } from '../lib/stripe.js';
+import { FREE_MAX_BYTES, MAX_FILE_BYTES } from '../lib/constants.js';
 import { z } from 'zod';
 
 const requestSchema = z.object({

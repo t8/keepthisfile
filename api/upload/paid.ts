@@ -1,7 +1,8 @@
-import { requireAuth } from '../lib/auth';
-import { uploadToArweave } from '../lib/arweave';
-import { createFile, getUploadRequestBySessionId, updateUploadRequestStatus } from '../lib/models';
-import { MAX_FILE_BYTES } from '../lib/constants';
+import { requireAuth } from '../lib/auth.js';
+import { uploadToArweave } from '../lib/arweave.js';
+import { createFile, getUploadRequestBySessionId, updateUploadRequestStatus } from '../lib/models.js';
+import { MAX_FILE_BYTES } from '../lib/constants.js';
+import { parseMultipartFormData } from '../lib/multipart.js';
 
 export default async function handler(req: Request): Promise<Response> {
   if (req.method !== 'POST') {
@@ -15,9 +16,8 @@ export default async function handler(req: Request): Promise<Response> {
     // Require authentication
     const user = await requireAuth(req);
 
-    const formData = await req.formData();
-    const file = formData.get('file') as File;
-    const sessionId = formData.get('sessionId') as string;
+    const { file, fields } = await parseMultipartFormData(req);
+    const sessionId = fields.sessionId;
 
     if (!file) {
       return new Response(
@@ -34,7 +34,7 @@ export default async function handler(req: Request): Promise<Response> {
     }
 
     const fileSize = file.size;
-    const fileBuffer = Buffer.from(await file.arrayBuffer());
+    const fileBuffer = file.buffer;
 
     // Validate file size
     if (fileSize > MAX_FILE_BYTES) {
@@ -82,8 +82,8 @@ export default async function handler(req: Request): Promise<Response> {
     // Upload to Arweave
     const { txId, arweaveUrl } = await uploadToArweave(
       fileBuffer,
-      file.type || 'application/octet-stream',
-      file.name
+      file.mimetype,
+      file.originalFilename
     );
 
     // Save file record
@@ -92,8 +92,8 @@ export default async function handler(req: Request): Promise<Response> {
       arweaveTxId: txId,
       arweaveUrl,
       sizeBytes: fileSize,
-      mimeType: file.type || 'application/octet-stream',
-      originalFileName: file.name,
+      mimeType: file.mimetype,
+      originalFileName: file.originalFilename,
     });
 
     // Update upload request status
@@ -102,12 +102,14 @@ export default async function handler(req: Request): Promise<Response> {
     return new Response(
       JSON.stringify({
         success: true,
-        file: {
-          id: fileRecord._id,
-          txId,
-          arweaveUrl,
-          sizeBytes: fileSize,
-          fileName: file.name,
+        data: {
+          file: {
+            id: fileRecord._id,
+            txId,
+            arweaveUrl,
+            sizeBytes: fileSize,
+            fileName: file.originalFilename,
+          },
         },
       }),
       {

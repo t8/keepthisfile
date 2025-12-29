@@ -7,7 +7,7 @@ A full-stack application for uploading files to Arweave permanently. Features ma
 - **Free Tier**: Upload files ≤100KB without signup
 - **Paid Tier**: Upload larger files with Stripe payment integration
 - **Magic Link Authentication**: Passwordless email-based authentication
-- **Arweave Integration**: Direct uploads to the permaweb
+- **Arweave Integration**: Uploads via Ar.IO Turbo bundling service (ANS-104 compliant)
 - **MongoDB Persistence**: User and file metadata storage
 - **Vercel Ready**: Deploy as serverless functions
 
@@ -100,15 +100,38 @@ This will give you a webhook secret starting with `whsec_` - use this for local 
 
 ## Arweave Wallet Setup
 
-1. Generate an Arweave wallet using [Arweave Wallet Generator](https://www.arweave.app/) or Arweave CLI
-2. Fund your wallet with AR tokens (for uploads)
-3. Export the wallet JSON
-4. Stringify the JSON and add to `.env.local` as `ARWEAVE_KEY_JSON`
+This app uses a **hybrid approach** for uploads:
 
-Example:
-```json
-{"kty":"RSA","n":"...","e":"AQAB","d":"...","p":"...","q":"...","dp":"...","dq":"...","qi":"..."}
+- **Files ≤100KB**: Uses [Ar.IO's Turbo bundling service](https://docs.ar.io/build/upload/bundling-services) - **FREE**, no AR balance or credits needed
+- **Files >100KB**: Uses direct Arweave upload - **requires AR balance** in your wallet
+
+### 1. Generate Arweave Wallet
+
+1. Generate an Arweave wallet using [Arweave Wallet Generator](https://www.arweave.app/) or:
+```bash
+npx permaweb/wallet > key.json
 ```
+
+2. Export the wallet JSON and stringify it
+3. Add to `.env.local` as `ARWEAVE_KEY_JSON`
+
+### 2. Fund Your Wallet (for files >100KB)
+
+For files larger than 100KB, you need AR tokens in your wallet:
+
+1. Get AR tokens from an exchange (e.g., Binance, Coinbase, etc.)
+2. Send AR to your wallet address
+3. Check your balance on [viewblock.io](https://viewblock.io/arweave) or [arweave.net](https://arweave.net)
+
+**Note:** Files under 100KB use Turbo's free tier, so you don't need AR balance or Turbo credits for those uploads.
+
+### 3. How It Works
+
+- **Small files (≤100KB)**: Automatically uses Turbo bundling service - completely free, no setup needed
+- **Large files (>100KB)**: Uses direct Arweave transactions - charges your wallet's AR balance
+- Automatic fallback: If Turbo fails for small files, it falls back to Arweave upload
+
+This gives you the best of both worlds: free uploads for small files via Turbo, and direct control for larger files.
 
 ## API Endpoints
 
