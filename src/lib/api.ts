@@ -46,10 +46,21 @@ export async function uploadFree(file: File): Promise<ApiResponse<{
     fileName: string;
   };
 }>> {
-  const formData = new FormData();
-  formData.append('file', file);
-
   try {
+    console.log('Converting file to base64...', { name: file.name, size: file.size, type: file.type });
+    
+    // Convert file to base64 (handle large files properly)
+    const arrayBuffer = await file.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+    let binary = '';
+    const chunkSize = 8192; // Process in chunks to avoid stack overflow
+    for (let i = 0; i < uint8Array.length; i += chunkSize) {
+      binary += String.fromCharCode.apply(null, Array.from(uint8Array.slice(i, i + chunkSize)));
+    }
+    const base64 = btoa(binary);
+    const fileData = `data:${file.type || 'application/octet-stream'};base64,${base64}`;
+    
+    console.log('File converted, base64 length:', fileData.length);
     console.log('Starting upload request to:', `${API_BASE}/upload/free`);
     
     // Add timeout to prevent hanging
@@ -58,7 +69,14 @@ export async function uploadFree(file: File): Promise<ApiResponse<{
     
     const response = await fetch(`${API_BASE}/upload/free`, {
       method: 'POST',
-      body: formData,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        fileData,
+        fileName: file.name,
+        mimeType: file.type || 'application/octet-stream',
+      }),
       signal: controller.signal,
     }).finally(() => clearTimeout(timeoutId));
 
@@ -118,19 +136,48 @@ export async function uploadPaid(file: File, sessionId: string): Promise<ApiResp
     fileName: string;
   };
 }>> {
-  const token = localStorage.getItem('auth-token');
-  const formData = new FormData();
-  formData.append('file', file);
-  formData.append('sessionId', sessionId);
-
-  const response = await fetch(`${API_BASE}/upload/paid`, {
-    method: 'POST',
-    headers: {
-      ...(token && { Authorization: `Bearer ${token}` }),
-    },
-    body: formData,
-  });
-  return await response.json();
+  try {
+    console.log('Converting file to base64 for paid upload...', { name: file.name, size: file.size, type: file.type });
+    
+    // Convert file to base64 (handle large files properly)
+    const arrayBuffer = await file.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+    let binary = '';
+    const chunkSize = 8192; // Process in chunks to avoid stack overflow
+    for (let i = 0; i < uint8Array.length; i += chunkSize) {
+      binary += String.fromCharCode.apply(null, Array.from(uint8Array.slice(i, i + chunkSize)));
+    }
+    const base64 = btoa(binary);
+    const fileData = `data:${file.type || 'application/octet-stream'};base64,${base64}`;
+    
+    const token = localStorage.getItem('auth-token');
+    
+    const response = await fetch(`${API_BASE}/upload/paid`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+      body: JSON.stringify({
+        fileData,
+        fileName: file.name,
+        mimeType: file.type || 'application/octet-stream',
+        sessionId,
+      }),
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}: ${response.statusText}` }));
+      return { error: errorData.error || `Upload failed with status ${response.status}` };
+    }
+    
+    return await response.json();
+  } catch (error: any) {
+    console.error('Paid upload exception:', error);
+    return { 
+      error: error.message || 'Network error: Failed to upload file. Please check your connection and try again.' 
+    };
+  }
 }
 
 // Files API

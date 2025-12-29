@@ -1,8 +1,7 @@
 import { uploadToArweave } from '../lib/arweave.js';
 import { createFile } from '../lib/models.js';
 import { FREE_MAX_BYTES, MAX_FILE_BYTES } from '../lib/constants.js';
-import { parseMultipartFormData } from '../lib/multipart.js';
-import { jsonResponse } from '../lib/utils.js';
+import { readJsonBody } from '../lib/utils.js';
 
 export default async function handler(req: Request): Promise<Response> {
   console.log('Handler called, method:', req.method);
@@ -15,20 +14,40 @@ export default async function handler(req: Request): Promise<Response> {
   }
 
   try {
-    console.log('Parsing multipart form data...');
-    const parseResult = await parseMultipartFormData(req);
-    console.log('Multipart parsing complete, file:', parseResult.file ? 'present' : 'missing');
-    const { file } = parseResult;
-
-    if (!file) {
+    // Parse JSON body with base64 file data
+    const body = await readJsonBody(req) as {
+      fileData?: string;
+      fileName?: string;
+      mimeType?: string;
+    };
+    console.log('Request body received, has fileData:', !!body.fileData);
+    
+    if (!body.fileData || !body.fileName) {
       return new Response(
-        JSON.stringify({ error: 'No file provided' }),
+        JSON.stringify({ error: 'Missing fileData or fileName in request body' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
-    const fileSize = file.size;
-    const fileBuffer = file.buffer;
+    // Decode base64 to buffer
+    let fileBuffer: Buffer;
+    try {
+      // Remove data URL prefix if present (e.g., "data:image/jpeg;base64,")
+      const base64Data = body.fileData.includes(',') 
+        ? body.fileData.split(',')[1] 
+        : body.fileData;
+      fileBuffer = Buffer.from(base64Data, 'base64');
+    } catch (error) {
+      console.error('Failed to decode base64:', error);
+      return new Response(
+        JSON.stringify({ error: 'Invalid base64 file data' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const fileSize = fileBuffer.length;
+    const mimeType = body.mimeType || 'application/octet-stream';
+    const fileName = body.fileName;
 
     // Enforce size limits
     if (fileSize > MAX_FILE_BYTES) {
@@ -53,8 +72,8 @@ export default async function handler(req: Request): Promise<Response> {
     console.log('Starting upload to Arweave...');
     const { txId, arweaveUrl } = await uploadToArweave(
       fileBuffer,
-      file.mimetype,
-      file.originalFilename
+      mimeType,
+      fileName
     );
     console.log('Upload completed:', { txId, arweaveUrl });
 
@@ -67,7 +86,7 @@ export default async function handler(req: Request): Promise<Response> {
           txId,
           arweaveUrl,
           sizeBytes: fileSize,
-          fileName: file.originalFilename,
+          fileName: fileName,
         },
       },
     };
@@ -81,8 +100,8 @@ export default async function handler(req: Request): Promise<Response> {
         arweaveTxId: txId,
         arweaveUrl,
         sizeBytes: fileSize,
-        mimeType: file.mimetype,
-        originalFileName: file.originalFilename,
+        mimeType: mimeType,
+        originalFileName: fileName,
       });
       fileRecordId = fileRecord._id || fileRecordId;
       console.log('File record saved:', fileRecordId);
@@ -115,13 +134,7 @@ export default async function handler(req: Request): Promise<Response> {
     console.log('Response bodyUsed:', response.bodyUsed);
     
     // Return immediately
-    console.log('Returning response now - function should complete');
-    
-    // Add a small delay to ensure all async operations are complete
-    // This shouldn't be necessary, but helps debug
-    await new Promise(resolve => setImmediate(resolve));
-    
-    console.log('After setImmediate, returning response');
+    console.log('Returning response now - all operations complete');
     return response;
   } catch (error: any) {
     console.error('Free upload error:', error);

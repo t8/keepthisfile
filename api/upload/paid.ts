@@ -2,7 +2,7 @@ import { requireAuth } from '../lib/auth.js';
 import { uploadToArweave } from '../lib/arweave.js';
 import { createFile, getUploadRequestBySessionId, updateUploadRequestStatus } from '../lib/models.js';
 import { MAX_FILE_BYTES } from '../lib/constants.js';
-import { parseMultipartFormData } from '../lib/multipart.js';
+import { readJsonBody } from '../lib/utils.js';
 
 export default async function handler(req: Request): Promise<Response> {
   if (req.method !== 'POST') {
@@ -16,25 +16,42 @@ export default async function handler(req: Request): Promise<Response> {
     // Require authentication
     const user = await requireAuth(req);
 
-    const { file, fields } = await parseMultipartFormData(req);
-    const sessionId = fields.sessionId;
-
-    if (!file) {
+    // Parse JSON body with base64 file data
+    const body = await readJsonBody(req) as {
+      fileData?: string;
+      fileName?: string;
+      mimeType?: string;
+      sessionId?: string;
+    };
+    
+    if (!body.fileData || !body.fileName || !body.sessionId) {
       return new Response(
-        JSON.stringify({ error: 'No file provided' }),
+        JSON.stringify({ error: 'Missing fileData, fileName, or sessionId in request body' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
-    if (!sessionId) {
+    const sessionId = body.sessionId;
+
+    // Decode base64 to buffer
+    let fileBuffer: Buffer;
+    try {
+      // Remove data URL prefix if present (e.g., "data:image/jpeg;base64,")
+      const base64Data = body.fileData.includes(',') 
+        ? body.fileData.split(',')[1] 
+        : body.fileData;
+      fileBuffer = Buffer.from(base64Data, 'base64');
+    } catch (error) {
+      console.error('Failed to decode base64:', error);
       return new Response(
-        JSON.stringify({ error: 'Session ID required' }),
+        JSON.stringify({ error: 'Invalid base64 file data' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
-    const fileSize = file.size;
-    const fileBuffer = file.buffer;
+    const fileSize = fileBuffer.length;
+    const mimeType = body.mimeType || 'application/octet-stream';
+    const fileName = body.fileName;
 
     // Validate file size
     if (fileSize > MAX_FILE_BYTES) {
@@ -82,8 +99,8 @@ export default async function handler(req: Request): Promise<Response> {
     // Upload to Arweave
     const { txId, arweaveUrl } = await uploadToArweave(
       fileBuffer,
-      file.mimetype,
-      file.originalFilename
+      mimeType,
+      fileName
     );
 
     // Save file record
@@ -92,8 +109,8 @@ export default async function handler(req: Request): Promise<Response> {
       arweaveTxId: txId,
       arweaveUrl,
       sizeBytes: fileSize,
-      mimeType: file.mimetype,
-      originalFileName: file.originalFilename,
+      mimeType: mimeType,
+      originalFileName: fileName,
     });
 
     // Update upload request status
@@ -108,13 +125,18 @@ export default async function handler(req: Request): Promise<Response> {
             txId,
             arweaveUrl,
             sizeBytes: fileSize,
-            fileName: file.originalFilename,
+            fileName: fileName,
           },
         },
       }),
       {
         status: 200,
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        },
       }
     );
   } catch (error) {
