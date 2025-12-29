@@ -53,6 +53,7 @@ export async function parseMultipartFormData(
   console.log('Using busboy for multipart parsing');
   
   // For Node.js IncomingMessage, use the stream directly
+  // This is the most reliable approach for Vercel serverless functions
   if (!(req instanceof Request)) {
     return new Promise((resolve, reject) => {
       const fields: Record<string, string> = {};
@@ -97,11 +98,13 @@ export async function parseMultipartFormData(
     });
   }
 
-  // For Web API Request, convert to stream
+  // For Web API Request, always use busboy with buffer conversion
+  // This ensures the request body is fully consumed and the promise resolves
   return new Promise((resolve, reject) => {
     const fields: Record<string, string> = {};
     let file: ParsedFile | undefined;
     let fileInfo: { mimetype: string; filename: string } | null = null;
+    let resolved = false;
 
     // Convert Request body to Node.js stream
     getBodyAsBuffer(req)
@@ -120,7 +123,7 @@ export async function parseMultipartFormData(
               console.log('File stream ended, total size:', fileChunks.reduce((sum, chunk) => sum + chunk.length, 0));
               file = {
                 buffer: Buffer.concat(fileChunks),
-                mimetype: fileInfo!.mimetype || 'application/octet-stream',
+                mimetype: fileInfo!.mimeType || 'application/octet-stream',
                 originalFilename: fileInfo!.filename || 'unknown',
                 size: Buffer.concat(fileChunks).length,
               };
@@ -134,19 +137,40 @@ export async function parseMultipartFormData(
 
         bb.on('finish', () => {
           console.log('Busboy finished parsing, file:', file ? 'present' : 'missing');
-          resolve({ file, fields });
+          if (!resolved) {
+            resolved = true;
+            resolve({ file, fields });
+          }
         });
 
         bb.on('error', (err) => {
           console.error('Busboy error:', err);
-          reject(err);
+          if (!resolved) {
+            resolved = true;
+            reject(err);
+          }
+        });
+        
+        stream.on('error', (err) => {
+          console.error('Stream error:', err);
+          if (!resolved) {
+            resolved = true;
+            reject(err);
+          }
+        });
+        
+        stream.on('end', () => {
+          console.log('Request stream fully consumed');
         });
         
         stream.pipe(bb);
       })
       .catch((err) => {
         console.error('Error reading request body:', err);
-        reject(err);
+        if (!resolved) {
+          resolved = true;
+          reject(err);
+        }
       });
   });
 }

@@ -5,6 +5,8 @@ import { parseMultipartFormData } from '../lib/multipart.js';
 import { jsonResponse } from '../lib/utils.js';
 
 export default async function handler(req: Request): Promise<Response> {
+  console.log('Handler called, method:', req.method);
+  
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
       status: 405,
@@ -92,10 +94,34 @@ export default async function handler(req: Request): Promise<Response> {
     // Update response with actual file ID
     responseBody.data.file.id = fileRecordId;
     
-    console.log('Returning success response with file data');
-    const response = jsonResponse(responseBody, 200);
-    console.log('Response created, status:', response.status);
-    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+    console.log('Preparing response body:', JSON.stringify(responseBody));
+    const responseBodyString = JSON.stringify(responseBody);
+    console.log('Response body stringified, length:', responseBodyString.length);
+    
+    // Create response directly (simpler, might work better)
+    const response = new Response(responseBodyString, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': responseBodyString.length.toString(),
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      },
+    });
+    
+    console.log('Response created directly, status:', response.status);
+    console.log('Response OK:', response.ok);
+    console.log('Response bodyUsed:', response.bodyUsed);
+    
+    // Return immediately
+    console.log('Returning response now - function should complete');
+    
+    // Add a small delay to ensure all async operations are complete
+    // This shouldn't be necessary, but helps debug
+    await new Promise(resolve => setImmediate(resolve));
+    
+    console.log('After setImmediate, returning response');
     return response;
   } catch (error: any) {
     console.error('Free upload error:', error);
