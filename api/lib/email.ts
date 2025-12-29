@@ -8,6 +8,9 @@ const transporter = nodemailer.createTransport({
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
+  connectionTimeout: 5000, // 5 seconds to establish connection
+  socketTimeout: 10000, // 10 seconds for socket operations
+  greetingTimeout: 5000, // 5 seconds for SMTP greeting
 });
 
 export async function sendMagicLink(email: string, token: string): Promise<void> {

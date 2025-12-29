@@ -21,27 +21,49 @@ export function verifyToken(token: string): AuthTokenPayload | null {
   }
 }
 
-export function getAuthTokenFromRequest(request: Request): string | null {
-  const authHeader = request.headers.get('authorization');
-  if (authHeader?.startsWith('Bearer ')) {
-    return authHeader.substring(7);
-  }
-  
-  // Also check cookies
-  const cookieHeader = request.headers.get('cookie');
-  if (cookieHeader) {
-    const cookies = cookieHeader.split(';').reduce((acc, cookie) => {
-      const [key, value] = cookie.trim().split('=');
-      acc[key] = value;
-      return acc;
-    }, {} as Record<string, string>);
-    return cookies['auth-token'] || null;
+export function getAuthTokenFromRequest(request: Request | { headers: { authorization?: string; cookie?: string } }): string | null {
+  // Handle Web API Request
+  if (request instanceof Request) {
+    const req = request as Request;
+    const authHeader = req.headers.get('authorization');
+    if (authHeader?.startsWith('Bearer ')) {
+      return authHeader.substring(7);
+    }
+    
+    // Also check cookies
+    const cookieHeader = req.headers.get('cookie');
+    if (cookieHeader) {
+      const cookies = cookieHeader.split(';').reduce((acc, cookie) => {
+        const [key, value] = cookie.trim().split('=');
+        acc[key] = value;
+        return acc;
+      }, {} as Record<string, string>);
+      return cookies['auth-token'] || null;
+    }
+  } else {
+    // Handle VercelRequest (Node.js IncomingMessage)
+    const req = request as { headers: { authorization?: string; cookie?: string } };
+    const authHeader = req.headers?.authorization;
+    if (authHeader?.startsWith('Bearer ')) {
+      return authHeader.substring(7);
+    }
+    
+    // Also check cookies
+    const cookieHeader = req.headers?.cookie;
+    if (cookieHeader) {
+      const cookies = cookieHeader.split(';').reduce((acc, cookie) => {
+        const [key, value] = cookie.trim().split('=');
+        acc[key] = value;
+        return acc;
+      }, {} as Record<string, string>);
+      return cookies['auth-token'] || null;
+    }
   }
   
   return null;
 }
 
-export async function getCurrentUser(request: Request): Promise<{ email: string; userId: string } | null> {
+export async function getCurrentUser(request: Request | { headers: { authorization?: string; cookie?: string } }): Promise<{ email: string; userId: string } | null> {
   const token = getAuthTokenFromRequest(request);
   if (!token) return null;
   

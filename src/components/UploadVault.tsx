@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { UploadZone } from './UploadZone';
 import { UploadProgress } from './UploadProgress';
+import { FilePreview } from './FilePreview';
+import { ShareOptions } from './ShareOptions';
 import { FileText, Lock, ShieldCheck, RefreshCw, AlertCircle } from 'lucide-react';
 import { uploadFree, uploadPaid, createUploadSession, getCurrentUser, getAuthToken } from '../lib/api';
 import { FREE_MAX_BYTES } from '../lib/constants';
@@ -10,13 +12,17 @@ interface UploadResult {
   txId: string;
   arweaveUrl: string;
   fileName: string;
+  mimeType?: string;
+  sizeBytes?: number;
+  fileId?: string;
 }
 
 interface UploadVaultProps {
   onUploadSuccess?: () => void;
+  onLoginRequest?: () => void;
 }
 
-export function UploadVault({ onUploadSuccess }: UploadVaultProps) {
+export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProps) {
   const [status, setStatus] = useState<'idle' | 'uploading' | 'complete' | 'error' | 'payment-required'>('idle');
   const [progress, setProgress] = useState(0);
   const [fileName, setFileName] = useState<string>('');
@@ -24,6 +30,7 @@ export function UploadVault({ onUploadSuccess }: UploadVaultProps) {
   const [error, setError] = useState<string>('');
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [fileMimeType, setFileMimeType] = useState<string>('');
 
   useEffect(() => {
     checkAuth();
@@ -40,6 +47,7 @@ export function UploadVault({ onUploadSuccess }: UploadVaultProps) {
   const handleFileSelect = async (file: File) => {
     setFileName(file.name);
     setSelectedFile(file);
+    setFileMimeType(file.type || 'application/octet-stream');
     setError('');
     setStatus('idle');
 
@@ -125,12 +133,18 @@ export function UploadVault({ onUploadSuccess }: UploadVaultProps) {
           txId: fileData.txId,
           arweaveUrl: fileData.arweaveUrl,
           fileName: fileData.fileName || file.name,
+          mimeType: file.type || fileData.mimeType || 'application/octet-stream',
+          sizeBytes: fileData.sizeBytes || file.size,
+          fileId: fileData.id,
         });
         setStatus('complete');
         console.log('State updated to complete');
         
-        // Notify parent component of successful upload
-        if (onUploadSuccess) {
+        // Refresh auth status to ensure we have latest state
+        await checkAuth();
+        
+        // Notify parent component of successful upload (refresh library)
+        if (onUploadSuccess && isAuthenticated) {
           console.log('Calling onUploadSuccess callback');
           setTimeout(() => {
             console.log('Executing onUploadSuccess');
@@ -177,6 +191,7 @@ export function UploadVault({ onUploadSuccess }: UploadVaultProps) {
     setUploadResult(null);
     setError('');
     setSelectedFile(null);
+    setFileMimeType('');
   };
   return <motion.div initial={{
     opacity: 0,
@@ -288,18 +303,70 @@ export function UploadVault({ onUploadSuccess }: UploadVaultProps) {
             }} className="space-y-4">
                     <div className="p-4 bg-neonGreen/10 border border-neonGreen/20 rounded-xl">
                       <p className="text-sm font-medium text-gray-900 mb-2">Upload Complete!</p>
-                      <a 
-                        href={uploadResult.arweaveUrl} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-xs font-mono text-neonPurple hover:underline break-all"
-                      >
-                        {uploadResult.arweaveUrl}
-                      </a>
-                      <p className="text-xs text-gray-500 mt-2 font-mono">
-                        TX ID: {uploadResult.txId}
-                      </p>
+                      {isAuthenticated ? (
+                        <>
+                          <a 
+                            href={uploadResult.arweaveUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-xs font-mono text-neonPurple hover:underline break-all"
+                          >
+                            {uploadResult.arweaveUrl}
+                          </a>
+                          <p className="text-xs text-gray-500 mt-2 font-mono">
+                            TX ID: {uploadResult.txId}
+                          </p>
+                        </>
+                      ) : (
+                        <div className="space-y-2">
+                          <p className="text-xs text-gray-600">
+                            Your file has been securely uploaded to Arweave.
+                          </p>
+                          <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                            <div className="flex items-start gap-2">
+                              <Lock size={16} className="text-amber-600 mt-0.5 flex-shrink-0" />
+                              <div className="flex-1">
+                                <p className="text-xs font-medium text-amber-900 mb-1">
+                                  Sign in to view your file URL and access sharing options
+                                </p>
+                                <p className="text-xs text-amber-700 mb-2">
+                                  Your file is safely stored and will be added to your library once you sign in.
+                                </p>
+                                {onLoginRequest && (
+                                  <button
+                                    onClick={onLoginRequest}
+                                    className="text-xs font-medium text-amber-700 hover:text-amber-900 underline"
+                                  >
+                                    Sign In Now
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
+                    
+                    {/* File Preview - Only show if authenticated */}
+                    {isAuthenticated && (
+                      <FilePreview
+                        url={uploadResult.arweaveUrl}
+                        mimeType={uploadResult.mimeType || fileMimeType}
+                        fileName={uploadResult.fileName}
+                        sizeBytes={uploadResult.sizeBytes}
+                      />
+                    )}
+                    
+                    {/* Share Options - Only show if authenticated */}
+                    {isAuthenticated && (
+                      <ShareOptions
+                        arweaveUrl={uploadResult.arweaveUrl}
+                        fileId={uploadResult.fileId}
+                        isAuthenticated={isAuthenticated}
+                        onLoginRequest={onLoginRequest}
+                      />
+                    )}
+                    
                     <UploadProgress progress={100} status="complete" />
                   </motion.div>}
 

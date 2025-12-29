@@ -63,6 +63,9 @@ export async function uploadFree(file: File): Promise<ApiResponse<{
     console.log('File converted, base64 length:', fileData.length);
     console.log('Starting upload request to:', `${API_BASE}/upload/free`);
     
+    // Get auth token if available
+    const token = getAuthToken();
+    
     // Wrap the entire operation in a timeout promise race
     // This avoids issues with AbortController signal being checked during body reading
     const timeoutMs = 120000; // 2 minute timeout
@@ -72,6 +75,7 @@ export async function uploadFree(file: File): Promise<ApiResponse<{
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(token && { Authorization: `Bearer ${token}` }),
         },
         body: JSON.stringify({
           fileData,
@@ -220,5 +224,48 @@ export function clearAuthToken() {
 
 export function getAuthToken(): string | null {
   return localStorage.getItem('auth-token');
+}
+
+// Share API
+export async function createShareLink(
+  fileIdOrUrl: string,
+  type: 'fileId' | 'arweaveUrl' = 'fileId'
+): Promise<ApiResponse<{
+  shareId: string;
+  shareUrl: string;
+  arweaveUrl: string;
+}>> {
+  const token = getAuthToken();
+  if (!token) {
+    return { error: 'Authentication required' };
+  }
+
+  const body = type === 'fileId' 
+    ? { fileId: fileIdOrUrl }
+    : { arweaveUrl: fileIdOrUrl };
+
+  const response = await fetch(`${API_BASE}/share/create`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}: ${response.statusText}` }));
+    return { error: errorData.error || `Failed to create share link with status ${response.status}` };
+  }
+
+  const result = await response.json();
+  return {
+    success: result.success,
+    data: result.data || {
+      shareId: result.shareId,
+      shareUrl: result.shareUrl,
+      arweaveUrl: result.arweaveUrl,
+    },
+  };
 }
 

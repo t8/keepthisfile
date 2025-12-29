@@ -3,6 +3,7 @@ import { createUploadRequest } from '../lib/models.js';
 import { stripe, calculatePrice } from '../lib/stripe.js';
 import { FREE_MAX_BYTES, MAX_FILE_BYTES } from '../lib/constants.js';
 import { z } from 'zod';
+import { readJsonBody } from '../lib/utils.js';
 
 const requestSchema = z.object({
   sizeBytes: z.number().int().positive(),
@@ -20,7 +21,7 @@ export default async function handler(req: Request): Promise<Response> {
     // Require authentication
     const user = await requireAuth(req);
 
-    const body = await req.json();
+    const body = await readJsonBody(req);
     const { sizeBytes } = requestSchema.parse(body);
 
     // Validate file size

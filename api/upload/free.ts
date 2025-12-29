@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { uploadToArweave } from '../lib/arweave.js';
 import { createFile } from '../lib/models.js';
 import { FREE_MAX_BYTES, MAX_FILE_BYTES } from '../lib/constants.js';
+import { getCurrentUser } from '../lib/auth.js';
 
 // Force Node.js runtime since we use Node.js APIs like Buffer
 export const config = {
@@ -73,6 +74,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
+    // Check for optional authentication
+    let userId: string | null = null;
+    try {
+      const user = await getCurrentUser(req);
+      if (user) {
+        userId = user.userId;
+        console.log('User authenticated, associating file with userId:', userId);
+      }
+    } catch (authError) {
+      // Auth is optional for free uploads, so we ignore errors
+      console.log('No authentication provided (optional for free uploads)');
+    }
+
     // Upload to Arweave
     console.log('Starting upload to Arweave...');
     const { txId, arweaveUrl } = await uploadToArweave(
@@ -86,7 +100,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let fileRecordId = 'temp-' + Date.now();
     try {
       const fileRecord = await createFile({
-        userId: null,
+        userId: userId,
         arweaveTxId: txId,
         arweaveUrl,
         sizeBytes: fileSize,

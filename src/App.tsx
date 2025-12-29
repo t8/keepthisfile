@@ -149,7 +149,14 @@ export function App() {
         </div>
 
         {currentView === 'upload' ? (
-          <UploadVault onUploadSuccess={() => setCurrentView('library')} />
+          <UploadVault 
+            onUploadSuccess={() => {
+              if (isAuthenticated) {
+                setCurrentView('library');
+              }
+            }}
+            onLoginRequest={() => setIsAuthModalOpen(true)}
+          />
         ) : isAuthenticated ? (
           <div className="w-full max-w-4xl mx-auto">
             <FileLibrary />
