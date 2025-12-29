@@ -92,6 +92,19 @@ export async function getFileById(fileId: string): Promise<File | null> {
   return await db.collection<File>('files').findOne({ _id: fileId });
 }
 
+export async function linkFilesToUser(arweaveUrls: string[], userId: string): Promise<number> {
+  const client = await clientPromise;
+  const db = client.db();
+  const result = await db.collection<File>('files').updateMany(
+    { 
+      arweaveUrl: { $in: arweaveUrls },
+      userId: null // Only link files that aren't already linked
+    },
+    { $set: { userId } }
+  );
+  return result.modifiedCount;
+}
+
 export async function createUploadRequest(
   uploadRequest: Omit<UploadRequest, '_id' | 'createdAt' | 'updatedAt'>
 ): Promise<UploadRequest> {

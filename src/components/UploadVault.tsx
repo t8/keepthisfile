@@ -130,6 +130,21 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
         setStatus('complete');
         console.log('State updated to complete');
         
+        // Store anonymous uploads in localStorage for later linking
+        if (!isAuthenticated && fileData.arweaveUrl) {
+          try {
+            const anonymousUploads = JSON.parse(localStorage.getItem('anonymous-uploads') || '[]');
+            // Only add if not already in the list
+            if (!anonymousUploads.includes(fileData.arweaveUrl)) {
+              anonymousUploads.push(fileData.arweaveUrl);
+              localStorage.setItem('anonymous-uploads', JSON.stringify(anonymousUploads));
+              console.log('Stored anonymous upload for later linking:', fileData.arweaveUrl);
+            }
+          } catch (err) {
+            console.error('Failed to store anonymous upload:', err);
+          }
+        }
+        
         // Notify parent component of successful upload (refresh library)
         if (onUploadSuccess && isAuthenticated) {
           console.log('Calling onUploadSuccess callback');

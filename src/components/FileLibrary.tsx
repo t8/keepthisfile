@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { FileText, ExternalLink, Copy, Check, Loader2, FolderOpen } from 'lucide-react';
-import { getUserFiles } from '../lib/api';
+import { FileText, ExternalLink, Copy, Check, Loader2, FolderOpen, Image as ImageIcon } from 'lucide-react';
+import { getUserFiles, getAuthToken } from '../lib/api';
+import { ShareOptions } from './ShareOptions';
 
 interface File {
   id: string;
@@ -18,6 +19,9 @@ export function FileLibrary() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const isAuthenticated = !!getAuthToken();
+  
+  const isImage = (mimeType: string) => mimeType.startsWith('image/');
 
   useEffect(() => {
     loadFiles();
@@ -117,9 +121,29 @@ export function FileLibrary() {
             className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow"
           >
             <div className="flex items-start gap-4">
-              <div className="p-3 bg-neonPurple/10 rounded-lg text-neonPurple">
-                <FileText size={24} />
-              </div>
+              {/* Image Preview or File Icon */}
+              {isImage(file.mimeType) ? (
+                <div className="flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
+                  <img
+                    src={file.arweaveUrl}
+                    alt={file.originalFileName}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      // Fallback to icon if image fails to load
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                      const parent = target.parentElement;
+                      if (parent) {
+                        parent.innerHTML = `<div class="w-full h-full flex items-center justify-center bg-gray-100"><svg class="text-neonPurple" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>`;
+                      }
+                    }}
+                  />
+                </div>
+              ) : (
+                <div className="p-3 bg-neonPurple/10 rounded-lg text-neonPurple flex-shrink-0">
+                  <FileText size={24} />
+                </div>
+              )}
               
               <div className="flex-1 min-w-0">
                 <h3 className="font-semibold text-gray-900 truncate mb-1">
@@ -133,7 +157,7 @@ export function FileLibrary() {
                   <span className="font-mono text-xs">{file.mimeType}</span>
                 </div>
                 
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap mb-3">
                   <a
                     href={file.arweaveUrl}
                     target="_blank"
@@ -165,6 +189,17 @@ export function FileLibrary() {
                     {file.arweaveTxId.substring(0, 16)}...
                   </span>
                 </div>
+                
+                {/* Share Options */}
+                {isAuthenticated && (
+                  <div className="mt-3 pt-3 border-t border-gray-100">
+                    <ShareOptions
+                      arweaveUrl={file.arweaveUrl}
+                      fileId={file.id}
+                      isAuthenticated={isAuthenticated}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           </motion.div>

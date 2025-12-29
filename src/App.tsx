@@ -6,7 +6,7 @@ import { FileLibrary } from './components/FileLibrary';
 import { AuthModal } from './components/AuthModal';
 import { motion } from 'framer-motion';
 import { Database, LogOut, Upload, FolderOpen } from 'lucide-react';
-import { getCurrentUser, clearAuthToken, getAuthToken } from './lib/api';
+import { getCurrentUser, clearAuthToken, getAuthToken, linkFilesToUser } from './lib/api';
 
 export function App() {
   const navigate = useNavigate();
@@ -22,11 +22,33 @@ export function App() {
       setAuthLoading(false);
     });
     
+    // Link anonymous uploads helper function
+    const linkAnonymousUploads = async () => {
+      try {
+        const anonymousUploads = JSON.parse(localStorage.getItem('anonymous-uploads') || '[]');
+        if (anonymousUploads.length > 0) {
+          console.log('[App] Linking', anonymousUploads.length, 'anonymous uploads to user account...');
+          const linkResult = await linkFilesToUser(anonymousUploads);
+          if (linkResult.data?.linkedCount) {
+            console.log('[App] Successfully linked', linkResult.data.linkedCount, 'files to user account');
+            localStorage.removeItem('anonymous-uploads');
+          } else if (linkResult.error) {
+            console.error('[App] Failed to link anonymous uploads:', linkResult.error);
+          }
+        }
+      } catch (err) {
+        console.error('[App] Error linking anonymous uploads:', err);
+      }
+    };
+    
     // Listen for storage events (when token is set in another tab/window from magic link)
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'auth-token' && e.newValue) {
         console.log('[App] Storage event detected, token set, checking auth...');
-        checkAuth();
+        checkAuth().then(() => {
+          // Link anonymous uploads after auth check completes
+          linkAnonymousUploads();
+        });
       } else if (e.key === 'auth-token' && !e.newValue) {
         console.log('[App] Storage event detected, token removed');
         setIsAuthenticated(false);
@@ -84,6 +106,31 @@ export function App() {
 
   const handleLogin = async () => {
     await checkAuth();
+    
+    // Link any anonymous uploads to the user's account
+    // Check if we're authenticated by checking for token (checkAuth already updated state)
+    const hasToken = !!getAuthToken();
+    if (hasToken) {
+      try {
+        const anonymousUploads = JSON.parse(localStorage.getItem('anonymous-uploads') || '[]');
+        if (anonymousUploads.length > 0) {
+          console.log('[App] Linking', anonymousUploads.length, 'anonymous uploads to user account...');
+          const linkResult = await linkFilesToUser(anonymousUploads);
+          if (linkResult.data?.linkedCount) {
+            console.log('[App] Successfully linked', linkResult.data.linkedCount, 'files to user account');
+            // Clear the anonymous uploads from localStorage
+            localStorage.removeItem('anonymous-uploads');
+          } else if (linkResult.error) {
+            console.error('[App] Failed to link anonymous uploads:', linkResult.error);
+            // Keep them in localStorage to try again later
+          }
+        }
+      } catch (err) {
+        console.error('[App] Error linking anonymous uploads:', err);
+        // Non-critical error, continue with login
+      }
+    }
+    
     setIsAuthModalOpen(false);
   };
 
@@ -199,9 +246,7 @@ export function App() {
             element={
               <UploadVault 
                 onUploadSuccess={() => {
-                  if (isAuthenticated) {
-                    navigate('/files');
-                  }
+                  // Don't redirect - stay on upload page to show success/share options
                 }}
                 onLoginRequest={() => setIsAuthModalOpen(true)}
               />

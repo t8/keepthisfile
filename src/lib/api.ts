@@ -250,6 +250,32 @@ export function getAuthToken(): string | null {
   return localStorage.getItem('auth-token');
 }
 
+// Link files API
+export async function linkFilesToUser(arweaveUrls: string[]): Promise<ApiResponse<{
+  linkedCount: number;
+}>> {
+  const token = getAuthToken();
+  if (!token) {
+    return { error: 'Authentication required' };
+  }
+
+  const response = await fetch(`${API_BASE}/files/link`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ arweaveUrls }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}: ${response.statusText}` }));
+    return { error: errorData.error || `Failed to link files with status ${response.status}` };
+  }
+
+  return await response.json();
+}
+
 // Share API
 export async function createShareLink(
   fileIdOrUrl: string,
