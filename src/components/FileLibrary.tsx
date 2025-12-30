@@ -101,29 +101,29 @@ export function FileLibrary() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 font-display">Your Files</h2>
+    <div className="space-y-4 w-full">
+      <div className="flex items-center justify-between mb-4 sm:mb-6 flex-wrap gap-2">
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-900 font-display">Your Files</h2>
         <button
           onClick={loadFiles}
-          className="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
         >
           Refresh
         </button>
       </div>
 
-      <div className="grid gap-4">
+      <div className="grid gap-3 sm:gap-4">
         {files.map((file) => (
           <motion.div
             key={file.id}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow"
+            className="bg-white rounded-xl border border-gray-200 p-3 sm:p-4 hover:shadow-md transition-shadow w-full overflow-hidden"
           >
-            <div className="flex items-start gap-4">
+            <div className="flex items-start gap-3 sm:gap-4">
               {/* Image Preview or File Icon */}
               {isImage(file.mimeType) ? (
-                <div className="flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
+                <div className="flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
                   <img
                     src={file.arweaveUrl}
                     alt={file.originalFileName}
@@ -140,53 +140,54 @@ export function FileLibrary() {
                   />
                 </div>
               ) : (
-                <div className="p-3 bg-neonPurple/10 rounded-lg text-neonPurple flex-shrink-0">
-                  <FileText size={24} />
+                <div className="p-2 sm:p-3 bg-neonPurple/10 rounded-lg text-neonPurple flex-shrink-0">
+                  <FileText size={20} className="sm:w-6 sm:h-6" />
                 </div>
               )}
               
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-gray-900 truncate mb-1">
+              <div className="flex-1 min-w-0 overflow-hidden">
+                <h3 className="font-semibold text-sm sm:text-base text-gray-900 truncate mb-1">
                   {file.originalFileName}
                 </h3>
-                <div className="flex flex-wrap gap-4 text-sm text-gray-600 mb-3">
+                <div className="flex flex-wrap gap-2 sm:gap-4 text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3">
                   <span>{formatFileSize(file.sizeBytes)}</span>
-                  <span>•</span>
-                  <span>{formatDate(file.createdAt)}</span>
-                  <span>•</span>
-                  <span className="font-mono text-xs">{file.mimeType}</span>
+                  <span className="hidden sm:inline">•</span>
+                  <span className="break-words">{formatDate(file.createdAt)}</span>
+                  <span className="hidden sm:inline">•</span>
+                  <span className="font-mono text-[10px] sm:text-xs break-all">{file.mimeType}</span>
                 </div>
                 
-                <div className="flex items-center gap-2 flex-wrap mb-3">
+                <div className="flex items-center gap-2 flex-wrap mb-2 sm:mb-3">
                   <a
                     href={file.arweaveUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-neonPurple bg-neonPurple/10 rounded-lg hover:bg-neonPurple/20 transition-colors"
+                    className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium text-neonPurple bg-neonPurple/10 rounded-lg hover:bg-neonPurple/20 transition-colors"
                   >
-                    <ExternalLink size={14} />
-                    View on Arweave
+                    <ExternalLink size={12} className="sm:w-3.5 sm:h-3.5" />
+                    <span className="whitespace-nowrap">View on Arweave</span>
                   </a>
                   
                   <button
                     onClick={() => copyToClipboard(file.arweaveUrl, file.id)}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                    className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
                   >
                     {copiedId === file.id ? (
                       <>
-                        <Check size={14} />
-                        Copied!
+                        <Check size={12} className="sm:w-3.5 sm:h-3.5" />
+                        <span>Copied!</span>
                       </>
                     ) : (
                       <>
-                        <Copy size={14} />
-                        Copy URL
+                        <Copy size={12} className="sm:w-3.5 sm:h-3.5" />
+                        <span className="hidden sm:inline">Copy URL</span>
+                        <span className="sm:hidden">Copy</span>
                       </>
                     )}
                   </button>
                   
-                  <span className="font-mono text-xs text-gray-500 px-2 py-1 bg-gray-50 rounded">
-                    {file.arweaveTxId.substring(0, 16)}...
+                  <span className="font-mono text-[10px] sm:text-xs text-gray-500 px-2 py-1 bg-gray-50 rounded truncate max-w-full">
+                    {file.arweaveTxId.substring(0, 12)}...
                   </span>
                 </div>
                 

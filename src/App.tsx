@@ -153,61 +153,61 @@ export function App() {
     );
   }
 
-  return <div className="relative min-h-screen w-full bg-smokedWhite text-darkText overflow-hidden flex flex-col">
+  return <div className="relative min-h-screen w-full bg-smokedWhite text-darkText overflow-x-hidden flex flex-col">
       <GridBackground />
 
       {/* Header */}
-      <header className="relative z-10 w-full px-6 py-6 flex justify-between items-center">
-        <div className="flex items-center gap-2">
+      <header className="relative z-10 w-full px-4 sm:px-6 py-4 sm:py-6 flex items-center gap-3 sm:gap-4 overflow-x-auto">
+        <Link to="/" className="flex items-center gap-2 flex-shrink-0 hover:opacity-80 transition-opacity">
           <div className="p-2 bg-neonPurple/10 rounded-lg text-neonPurple">
             <Database size={20} />
           </div>
-          <span className="font-display font-bold text-xl tracking-wider">
+          <span className="hidden md:inline font-display font-bold text-lg lg:text-xl tracking-wider">
             KeepThis<span className="text-neonPurple">File</span>
           </span>
-        </div>
-        <div className="flex items-center gap-4">
+        </Link>
+        <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0 justify-end">
           {isAuthenticated && (
-            <nav className="flex items-center gap-2 bg-white/50 backdrop-blur-sm rounded-lg p-1 border border-gray-200">
+            <nav className="flex items-center gap-1 sm:gap-2 bg-white/50 backdrop-blur-sm rounded-lg p-1 border border-gray-200 flex-shrink-0">
               <Link
                 to="/"
-                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${
+                className={`px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors flex items-center gap-1 sm:gap-2 ${
                   location.pathname === '/'
                     ? 'bg-neonPurple text-white'
                     : 'text-gray-600 hover:text-neonPurple'
                 }`}
               >
-                <Upload size={16} />
-                Upload
+                <Upload size={14} className="sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Upload</span>
               </Link>
               <Link
                 to="/files"
-                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${
+                className={`px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors flex items-center gap-1 sm:gap-2 ${
                   location.pathname === '/files'
                     ? 'bg-neonPurple text-white'
                     : 'text-gray-600 hover:text-neonPurple'
                 }`}
               >
-                <FolderOpen size={16} />
-                Files
+                <FolderOpen size={14} className="sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Files</span>
               </Link>
             </nav>
           )}
           {isAuthenticated ? (
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-gray-600 font-sans">{userEmail}</span>
+            <>
+              <span className="text-xs sm:text-sm text-gray-600 font-sans truncate max-w-[100px] sm:max-w-[150px] md:max-w-none flex-shrink-0">{userEmail}</span>
               <button 
                 onClick={handleLogout}
-                className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-neonPurple transition-colors font-display tracking-wide flex items-center gap-2"
+                className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-gray-600 hover:text-neonPurple transition-colors font-display tracking-wide flex items-center gap-1 sm:gap-2 flex-shrink-0"
               >
-                <LogOut size={16} />
-                Sign Out
+                <LogOut size={14} className="sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Sign Out</span>
               </button>
-            </div>
+            </>
           ) : (
             <button 
               onClick={() => setIsAuthModalOpen(true)}
-              className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-neonPurple transition-colors font-display tracking-wide"
+              className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-gray-600 hover:text-neonPurple transition-colors font-display tracking-wide flex-shrink-0"
             >
               Sign In
             </button>
@@ -216,8 +216,8 @@ export function App() {
       </header>
 
       {/* Main Content */}
-      <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 py-12">
-        <div className="w-full max-w-4xl mx-auto text-center mb-12">
+      <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-8 sm:py-12 overflow-x-hidden">
+        <div className="w-full max-w-4xl mx-auto text-center mb-8 sm:mb-12">
           <motion.div initial={{
           opacity: 0,
           y: 20
@@ -227,13 +227,13 @@ export function App() {
         }} transition={{
           duration: 0.6
         }}>
-            <span className="inline-block px-3 py-1 mb-4 text-xs font-mono text-neonPurple bg-neonPurple/10 rounded-full border border-neonPurple/20">
+            <span className="inline-block px-2 sm:px-3 py-1 mb-4 text-[10px] sm:text-xs font-mono text-neonPurple bg-neonPurple/10 rounded-full border border-neonPurple/20">
               PERMANENT_STORAGE_PROTOCOL
             </span>
-            <h1 className="text-5xl md:text-7xl font-bold mb-6 font-display tracking-tight text-gray-900">
+            <h1 className="text-3xl sm:text-5xl md:text-7xl font-bold mb-4 sm:mb-6 font-display tracking-tight text-gray-900 px-2">
               Store Data <span className="text-neonPurple">Forever</span>
             </h1>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto font-sans leading-relaxed">
+            <p className="text-sm sm:text-lg text-gray-600 max-w-2xl mx-auto font-sans leading-relaxed px-2">
               Upload your files to the permaweb. Secured by cryptography, stored
               redundantly across the globe, and accessible for centuries.
             </p>
@@ -256,15 +256,15 @@ export function App() {
             path="/files"
             element={
               isAuthenticated ? (
-                <div className="w-full max-w-4xl mx-auto">
+                <div className="w-full max-w-4xl mx-auto px-4 sm:px-6">
                   <FileLibrary />
                 </div>
               ) : (
-                <div className="text-center p-12">
-                  <p className="text-gray-600 mb-4">Please sign in to view your files.</p>
+                <div className="text-center p-8 sm:p-12 px-4">
+                  <p className="text-sm sm:text-base text-gray-600 mb-4">Please sign in to view your files.</p>
                   <button
                     onClick={() => setIsAuthModalOpen(true)}
-                    className="px-6 py-3 bg-neonPurple text-white rounded-lg font-medium hover:bg-neonPurple/90 transition-colors"
+                    className="px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base bg-neonPurple text-white rounded-lg font-medium hover:bg-neonPurple/90 transition-colors"
                   >
                     Sign In
                   </button>
@@ -282,28 +282,28 @@ export function App() {
       }} transition={{
         delay: 0.8,
         duration: 0.8
-      }} className="mt-16 grid grid-cols-2 md:grid-cols-3 gap-8 text-center">
+      }} className="mt-12 sm:mt-16 grid grid-cols-2 md:grid-cols-3 gap-4 sm:gap-8 text-center px-2 w-full max-w-4xl">
           <div>
-            <p className="text-2xl font-bold font-display text-gray-900">
+            <p className="text-xl sm:text-2xl font-bold font-display text-gray-900">
               200+
             </p>
-            <p className="text-xs font-mono text-gray-500 uppercase mt-1">
+            <p className="text-[10px] sm:text-xs font-mono text-gray-500 uppercase mt-1">
               Years Guaranteed
             </p>
           </div>
           <div>
-            <p className="text-2xl font-bold font-display text-gray-900">
+            <p className="text-xl sm:text-2xl font-bold font-display text-gray-900">
               100%
             </p>
-            <p className="text-xs font-mono text-gray-500 uppercase mt-1">
+            <p className="text-[10px] sm:text-xs font-mono text-gray-500 uppercase mt-1">
               Uptime
             </p>
           </div>
           <div className="col-span-2 md:col-span-1">
-            <p className="text-2xl font-bold font-display text-gray-900">
+            <p className="text-xl sm:text-2xl font-bold font-display text-gray-900">
               Global
             </p>
-            <p className="text-xs font-mono text-gray-500 uppercase mt-1">
+            <p className="text-[10px] sm:text-xs font-mono text-gray-500 uppercase mt-1">
               Redundancy
             </p>
           </div>

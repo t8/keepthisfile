@@ -33,15 +33,15 @@ export function UploadZone({
       onFileSelect(e.target.files[0]);
     }
   }, [onFileSelect]);
-  return <div className="relative group">
+  return <div className="relative group w-full">
       {/* Corner Accents */}
-      <div className={`absolute -top-2 -left-2 w-6 h-6 border-t-2 border-l-2 transition-colors duration-300 ${isDragging ? 'border-neonGreen' : 'border-gray-300'}`} />
-      <div className={`absolute -top-2 -right-2 w-6 h-6 border-t-2 border-r-2 transition-colors duration-300 ${isDragging ? 'border-neonGreen' : 'border-gray-300'}`} />
-      <div className={`absolute -bottom-2 -left-2 w-6 h-6 border-b-2 border-l-2 transition-colors duration-300 ${isDragging ? 'border-neonGreen' : 'border-gray-300'}`} />
-      <div className={`absolute -bottom-2 -right-2 w-6 h-6 border-b-2 border-r-2 transition-colors duration-300 ${isDragging ? 'border-neonGreen' : 'border-gray-300'}`} />
+      <div className={`absolute -top-1 sm:-top-2 -left-1 sm:-left-2 w-4 h-4 sm:w-6 sm:h-6 border-t-2 border-l-2 transition-colors duration-300 ${isDragging ? 'border-neonGreen' : 'border-gray-300'}`} />
+      <div className={`absolute -top-1 sm:-top-2 -right-1 sm:-right-2 w-4 h-4 sm:w-6 sm:h-6 border-t-2 border-r-2 transition-colors duration-300 ${isDragging ? 'border-neonGreen' : 'border-gray-300'}`} />
+      <div className={`absolute -bottom-1 sm:-bottom-2 -left-1 sm:-left-2 w-4 h-4 sm:w-6 sm:h-6 border-b-2 border-l-2 transition-colors duration-300 ${isDragging ? 'border-neonGreen' : 'border-gray-300'}`} />
+      <div className={`absolute -bottom-1 sm:-bottom-2 -right-1 sm:-right-2 w-4 h-4 sm:w-6 sm:h-6 border-b-2 border-r-2 transition-colors duration-300 ${isDragging ? 'border-neonGreen' : 'border-gray-300'}`} />
 
       <motion.label htmlFor="file-upload" className={`
-          relative flex flex-col items-center justify-center w-full h-64 
+          relative flex flex-col items-center justify-center w-full h-48 sm:h-64 
           border-2 border-dashed rounded-lg cursor-pointer overflow-hidden
           transition-all duration-300 ease-out
           ${isDragging ? 'border-neonGreen bg-neonGreen/5 shadow-[inset_0_0_40px_rgba(74,222,128,0.1)]' : 'border-gray-300 hover:border-neonPurple hover:bg-neonPurple/5'}
@@ -50,24 +50,24 @@ export function UploadZone({
     }} whileTap={{
       scale: 0.99
     }}>
-        <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center z-10">
+        <div className="flex flex-col items-center justify-center pt-4 sm:pt-5 pb-4 sm:pb-6 text-center z-10 px-4">
           <motion.div animate={isDragging ? {
           scale: 1.2,
           rotate: 10
         } : {
           scale: 1,
           rotate: 0
-        }} className={`mb-4 p-4 rounded-full ${isDragging ? 'bg-neonGreen/20 text-neonGreen' : 'bg-gray-100 text-gray-400 group-hover:text-neonPurple group-hover:bg-neonPurple/10'}`}>
-            <UploadCloud size={40} strokeWidth={1.5} />
+        }} className={`mb-3 sm:mb-4 p-3 sm:p-4 rounded-full ${isDragging ? 'bg-neonGreen/20 text-neonGreen' : 'bg-gray-100 text-gray-400 group-hover:text-neonPurple group-hover:bg-neonPurple/10'}`}>
+            <UploadCloud size={32} className="sm:w-10 sm:h-10" strokeWidth={1.5} />
           </motion.div>
 
-          <p className="mb-2 text-lg font-medium text-gray-700 font-sans">
+          <p className="mb-2 text-base sm:text-lg font-medium text-gray-700 font-sans">
             <span className="font-bold text-neonPurple font-display tracking-wide">
               Click to upload
             </span>{' '}
-            or drag and drop
+            <span className="hidden sm:inline">or drag and drop</span>
           </p>
-          <p className="text-sm text-gray-500 font-mono">
+          <p className="text-xs sm:text-sm text-gray-500 font-mono">
             SVG, PNG, JPG or GIF (MAX. 800x400px)
           </p>
         </div>

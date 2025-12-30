@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Mail, Loader2 } from 'lucide-react';
 import { requestMagicLink, getCurrentUser, setAuthToken, getAuthToken, clearAuthToken } from '../lib/api';
@@ -10,6 +10,39 @@ interface AuthModalProps {
 }
 
 export function AuthModal({ isOpen, onClose, onLogin }: AuthModalProps) {
+  // Lock document scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      // Save the current scroll position (html/document scrolls naturally)
+      const scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
+      
+      // Lock the document scroll by fixing the body position
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = '100%';
+      
+      // Prevent html from scrolling
+      document.documentElement.style.overflow = 'hidden';
+      // Ensure body doesn't scroll independently
+      document.body.style.overflow = 'hidden';
+      
+      return () => {
+        // Restore body styles
+        document.body.style.position = '';
+        document.body.style.top = '';
+        document.body.style.width = '';
+        document.body.style.overflow = 'hidden';
+        
+        // Restore html scroll (remove the lock)
+        document.documentElement.style.overflow = '';
+        
+        // Restore scroll position after styles are reset
+        requestAnimationFrame(() => {
+          window.scrollTo(0, scrollY);
+        });
+      };
+    }
+  }, [isOpen]);
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -111,12 +144,12 @@ export function AuthModal({ isOpen, onClose, onLogin }: AuthModalProps) {
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-hidden">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
-          className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full p-6"
+          className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full p-4 sm:p-6 overflow-hidden"
         >
           <button
             onClick={onClose}
@@ -125,11 +158,11 @@ export function AuthModal({ isOpen, onClose, onLogin }: AuthModalProps) {
             <X size={20} />
           </button>
 
-          <div className="mt-4">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2 font-display">
+          <div className="mt-2 sm:mt-4">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 font-display">
               Sign In
             </h2>
-            <p className="text-sm text-gray-600 mb-6">
+            <p className="text-xs sm:text-sm text-gray-600 mb-4 sm:mb-6">
               Enter your email to receive a magic link
             </p>
 
@@ -139,10 +172,10 @@ export function AuthModal({ isOpen, onClose, onLogin }: AuthModalProps) {
                   <div className="mb-4">
                     <Loader2 size={48} className="animate-spin text-neonPurple" />
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 px-2">
                     Go check your email for a confirmation link!
                   </h3>
-                  <p className="text-sm text-gray-600 text-center mb-4">
+                  <p className="text-xs sm:text-sm text-gray-600 text-center mb-4 px-2">
                     Click the link in your email, then return to this window. You'll be signed in automatically.
                   </p>
                   {polling && (

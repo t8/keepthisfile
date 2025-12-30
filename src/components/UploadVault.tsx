@@ -204,33 +204,33 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
   }} transition={{
     duration: 0.8,
     ease: 'easeOut'
-  }} className="relative w-full max-w-2xl mx-auto">
+  }} className="relative w-full max-w-2xl mx-auto px-2 sm:px-4">
       {/* Vault Container */}
       <div className="relative bg-white/80 backdrop-blur-xl rounded-2xl shadow-vault border border-white/50 overflow-hidden">
         {/* Header Bar */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-white/50">
-          <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-lg ${status === 'complete' ? 'bg-neonGreen/10 text-neonGreen' : 'bg-neonPurple/10 text-neonPurple'}`}>
-              {status === 'complete' ? <ShieldCheck size={20} /> : <Lock size={20} />}
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100 bg-white/50 flex-wrap gap-2">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className={`p-1.5 sm:p-2 rounded-lg ${status === 'complete' ? 'bg-neonGreen/10 text-neonGreen' : 'bg-neonPurple/10 text-neonPurple'}`}>
+              {status === 'complete' ? <ShieldCheck size={18} className="sm:w-5 sm:h-5" /> : <Lock size={18} className="sm:w-5 sm:h-5" />}
             </div>
             <div>
-              <h2 className="text-lg font-bold tracking-wider text-gray-900 uppercase font-display">
+              <h2 className="text-base sm:text-lg font-bold tracking-wider text-gray-900 uppercase font-display">
                 Digital Vault
               </h2>
-              <p className="text-[10px] font-mono text-gray-400 tracking-widest">
+              <p className="text-[9px] sm:text-[10px] font-mono text-gray-400 tracking-widest">
                 SECURE_UPLINK_V2.4
               </p>
             </div>
           </div>
-          <div className="flex gap-2">
-            <div className="w-2 h-2 rounded-full bg-red-400/30" />
-            <div className="w-2 h-2 rounded-full bg-yellow-400/30" />
-            <div className="w-2 h-2 rounded-full bg-green-400/30" />
+          <div className="flex gap-1.5 sm:gap-2">
+            <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-red-400/30" />
+            <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-yellow-400/30" />
+            <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-green-400/30" />
           </div>
         </div>
 
         {/* Main Content Area */}
-        <div className="p-8 min-h-[400px] flex flex-col justify-center">
+        <div className="p-4 sm:p-8 min-h-[300px] sm:min-h-[400px] flex flex-col justify-center">
           <AnimatePresence mode="wait">
             {status === 'idle' && <motion.div key="idle" initial={{
             opacity: 0,
@@ -252,9 +252,9 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
             opacity: 0
           }} animate={{
             opacity: 1
-          }} className="space-y-8">
+          }} className="space-y-4 sm:space-y-8">
                 {/* File Info Card */}
-                <motion.div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100" initial={{
+                <motion.div className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-50 rounded-xl border border-gray-100" initial={{
               y: 20,
               opacity: 0
             }} animate={{
@@ -263,14 +263,14 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
             }} transition={{
               delay: 0.2
             }}>
-                  <div className="p-3 bg-white rounded-lg shadow-sm text-neonPurple">
-                    <FileText size={24} />
+                  <div className="p-2 sm:p-3 bg-white rounded-lg shadow-sm text-neonPurple flex-shrink-0">
+                    <FileText size={20} className="sm:w-6 sm:h-6" />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate font-sans">
+                  <div className="flex-1 min-w-0 overflow-hidden">
+                    <p className="text-xs sm:text-sm font-medium text-gray-900 truncate font-sans">
                       {fileName}
                     </p>
-                    <p className="text-xs text-gray-500 font-mono">
+                    <p className="text-[10px] sm:text-xs text-gray-500 font-mono">
                       {status === 'uploading' ? 'ENCRYPTING & SEALING...' : 'SECURELY STORED'}
                     </p>
                   </div>
@@ -283,10 +283,10 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
             }} animate={{
               opacity: 1,
               y: 0
-            }} className="p-4 bg-red-50 border border-red-200 rounded-xl">
+            }} className="p-3 sm:p-4 bg-red-50 border border-red-200 rounded-xl">
                     <div className="flex items-center gap-2 text-red-600">
-                      <AlertCircle size={16} />
-                      <p className="text-sm font-medium">{error}</p>
+                      <AlertCircle size={14} className="sm:w-4 sm:h-4 flex-shrink-0" />
+                      <p className="text-xs sm:text-sm font-medium break-words">{error}</p>
                     </div>
                   </motion.div>}
 
@@ -302,20 +302,20 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
               y: 0
             }} transition={{
               delay: 0.3
-            }} className="space-y-4">
-                    <div className="p-4 bg-neonGreen/10 border border-neonGreen/20 rounded-xl">
-                      <p className="text-sm font-medium text-gray-900 mb-2">Upload Complete!</p>
+            }} className="space-y-3 sm:space-y-4">
+                    <div className="p-3 sm:p-4 bg-neonGreen/10 border border-neonGreen/20 rounded-xl">
+                      <p className="text-xs sm:text-sm font-medium text-gray-900 mb-2">Upload Complete!</p>
                       {isAuthenticated ? (
                         <>
                           <a 
                             href={uploadResult.arweaveUrl} 
                             target="_blank" 
                             rel="noopener noreferrer"
-                            className="text-xs font-mono text-neonPurple hover:underline break-all"
+                            className="text-[10px] sm:text-xs font-mono text-neonPurple hover:underline break-all block"
                           >
                             {uploadResult.arweaveUrl}
                           </a>
-                          <p className="text-xs text-gray-500 mt-2 font-mono">
+                          <p className="text-[10px] sm:text-xs text-gray-500 mt-2 font-mono break-all">
                             TX ID: {uploadResult.txId}
                           </p>
                         </>
@@ -324,20 +324,20 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
                           <p className="text-xs text-gray-600">
                             Your file has been securely uploaded to Arweave.
                           </p>
-                          <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                          <div className="p-2.5 sm:p-3 bg-amber-50 border border-amber-200 rounded-lg">
                             <div className="flex items-start gap-2">
-                              <Lock size={16} className="text-amber-600 mt-0.5 flex-shrink-0" />
-                              <div className="flex-1">
-                                <p className="text-xs font-medium text-amber-900 mb-1">
+                              <Lock size={14} className="sm:w-4 sm:h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[11px] sm:text-xs font-medium text-amber-900 mb-1">
                                   Sign in to view your file URL and access sharing options
                                 </p>
-                                <p className="text-xs text-amber-700 mb-2">
+                                <p className="text-[11px] sm:text-xs text-amber-700 mb-2">
                                   Your file is safely stored and will be added to your library once you sign in.
                                 </p>
                                 {onLoginRequest && (
                                   <button
                                     onClick={onLoginRequest}
-                                    className="text-xs font-medium text-amber-700 hover:text-amber-900 underline"
+                                    className="text-[11px] sm:text-xs font-medium text-amber-700 hover:text-amber-900 underline"
                                   >
                                     Sign In Now
                                   </button>
@@ -382,9 +382,9 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
             }} transition={{
               delay: 0.5
             }} className="flex justify-center pt-4">
-                    <button onClick={resetUpload} className="flex items-center gap-2 px-6 py-3 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-full hover:bg-gray-50 hover:text-neonPurple hover:border-neonPurple/30 transition-all shadow-sm group font-display tracking-wide">
-                      <RefreshCw size={16} className="group-hover:rotate-180 transition-transform duration-500" />
-                      Process Another File
+                    <button onClick={resetUpload} className="flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-full hover:bg-gray-50 hover:text-neonPurple hover:border-neonPurple/30 transition-all shadow-sm group font-display tracking-wide">
+                      <RefreshCw size={14} className="sm:w-4 sm:h-4 group-hover:rotate-180 transition-transform duration-500" />
+                      <span className="whitespace-nowrap">Process Another File</span>
                     </button>
                   </motion.div>}
               </motion.div>}
@@ -392,11 +392,11 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
         </div>
 
         {/* Decorative Footer */}
-        <div className="px-6 py-3 bg-gray-50 border-t border-gray-100 flex justify-between items-center text-[10px] font-mono text-gray-400">
-          <span>SYSTEM_READY</span>
-          <span className="flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-neonGreen animate-pulse" />
-            CONNECTED
+        <div className="px-4 sm:px-6 py-2 sm:py-3 bg-gray-50 border-t border-gray-100 flex justify-between items-center text-[9px] sm:text-[10px] font-mono text-gray-400 gap-2">
+          <span className="truncate">SYSTEM_READY</span>
+          <span className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+            <span className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-neonGreen animate-pulse" />
+            <span className="whitespace-nowrap">CONNECTED</span>
           </span>
         </div>
       </div>

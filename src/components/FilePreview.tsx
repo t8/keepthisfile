@@ -32,7 +32,7 @@ export function FilePreview({ url, mimeType, fileName, sizeBytes }: FilePreviewP
     >
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         {/* Preview Content */}
-        <div className="relative bg-gray-50 min-h-[200px] max-h-[400px] flex items-center justify-center overflow-hidden">
+        <div className="relative bg-gray-50 min-h-[200px] sm:min-h-[300px] max-h-[300px] sm:max-h-[400px] flex items-center justify-center overflow-hidden">
           {loading && (
             <div className="absolute inset-0 flex items-center justify-center bg-gray-50/80 backdrop-blur-sm z-10">
               <Loader2 className="animate-spin text-neonPurple" size={32} />
@@ -64,7 +64,7 @@ export function FilePreview({ url, mimeType, fileName, sizeBytes }: FilePreviewP
               ) : isPDF ? (
                 <iframe
                   src={url}
-                  className="w-full h-full min-h-[400px] border-0"
+                  className="w-full h-full min-h-[300px] sm:min-h-[400px] border-0"
                   onLoad={() => setLoading(false)}
                   onError={() => {
                     setLoading(false);
@@ -106,19 +106,19 @@ export function FilePreview({ url, mimeType, fileName, sizeBytes }: FilePreviewP
         </div>
 
         {/* File Info Footer */}
-        <div className="px-4 py-3 bg-white border-t border-gray-100 flex items-center justify-between">
-          <div className="flex items-center gap-3 flex-1 min-w-0">
-            <div className="p-2 bg-neonPurple/10 rounded-lg text-neonPurple flex-shrink-0">
-              <FileText size={16} />
+        <div className="px-3 sm:px-4 py-2 sm:py-3 bg-white border-t border-gray-100 flex items-center justify-between gap-2 sm:gap-4 flex-wrap">
+          <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+            <div className="p-1.5 sm:p-2 bg-neonPurple/10 rounded-lg text-neonPurple flex-shrink-0">
+              <FileText size={14} className="sm:w-4 sm:h-4" />
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">{fileName}</p>
-              <div className="flex items-center gap-2 text-xs text-gray-500">
-                <span className="font-mono">{mimeType}</span>
+            <div className="flex-1 min-w-0 overflow-hidden">
+              <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">{fileName}</p>
+              <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs text-gray-500 flex-wrap">
+                <span className="font-mono break-all">{mimeType}</span>
                 {sizeBytes && (
                   <>
-                    <span>•</span>
-                    <span>{formatFileSize(sizeBytes)}</span>
+                    <span className="hidden sm:inline">•</span>
+                    <span className="whitespace-nowrap">{formatFileSize(sizeBytes)}</span>
                   </>
                 )}
               </div>
@@ -128,7 +128,7 @@ export function FilePreview({ url, mimeType, fileName, sizeBytes }: FilePreviewP
             href={url}
             target="_blank"
             rel="noopener noreferrer"
-            className="ml-4 px-3 py-1.5 text-xs font-medium text-neonPurple bg-neonPurple/10 rounded-lg hover:bg-neonPurple/20 transition-colors flex-shrink-0"
+            className="px-2.5 sm:px-3 py-1.5 text-xs font-medium text-neonPurple bg-neonPurple/10 rounded-lg hover:bg-neonPurple/20 transition-colors flex-shrink-0 whitespace-nowrap"
           >
             Open
           </a>

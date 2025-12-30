@@ -39,11 +39,15 @@ export default async function handler(req: Request): Promise<Response> {
 
     if (body.fileId) {
       // Get file to verify ownership and get arweaveUrl
+      console.log('[SHARE] Looking up file with ID:', body.fileId);
       const file = await getFileById(body.fileId);
+      console.log('[SHARE] File lookup result:', file ? `found file: ${file.originalFileName}` : 'file not found');
       if (!file) {
+        console.log('[SHARE] File not found for ID:', body.fileId);
         return jsonResponse({ error: 'File not found' }, 404);
       }
       if (file.userId !== user.userId) {
+        console.log('[SHARE] File userId mismatch:', file.userId, 'vs', user.userId);
         return jsonResponse({ error: 'Unauthorized' }, 403);
       }
       arweaveUrl = file.arweaveUrl;

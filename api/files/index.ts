@@ -36,7 +36,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const responseData = {
       success: true,
       files: files.map(file => ({
-        id: file._id,
+        id: file._id?.toString() || file._id, // Ensure ID is a string
         arweaveTxId: file.arweaveTxId,
         arweaveUrl: file.arweaveUrl,
         sizeBytes: file.sizeBytes,

@@ -73,38 +73,39 @@ export function ShareOptions({ arweaveUrl, fileId, isAuthenticated, onLoginReque
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.4 }}
-      className="space-y-4"
+      className="space-y-3 sm:space-y-4 w-full"
     >
-      <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
-        <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-          <Share2 size={16} className="text-neonPurple" />
+      <div className="p-3 sm:p-4 bg-gray-50 rounded-xl border border-gray-200">
+        <h3 className="text-xs sm:text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+          <Share2 size={14} className="sm:w-4 sm:h-4 text-neonPurple" />
           Share File
         </h3>
 
         {/* Copy Arweave URL */}
-        <div className="mb-4">
+        <div className="mb-3 sm:mb-4">
           <label className="block text-xs font-medium text-gray-700 mb-2">
             Arweave URL
           </label>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <input
               type="text"
               value={arweaveUrl}
               readOnly
-              className="flex-1 px-3 py-2 text-xs font-mono bg-white border border-gray-300 rounded-lg text-gray-600 truncate"
+              className="flex-1 min-w-0 px-2 sm:px-3 py-1.5 sm:py-2 text-[10px] sm:text-xs font-mono bg-white border border-gray-300 rounded-lg text-gray-600 break-all"
             />
             <button
               onClick={handleCopyArweaveUrl}
-              className="px-3 py-2 text-xs font-medium text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-neonPurple transition-colors flex items-center gap-2 flex-shrink-0"
+              className="px-2 sm:px-3 py-1.5 sm:py-2 text-xs font-medium text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-neonPurple transition-colors flex items-center gap-1.5 sm:gap-2 flex-shrink-0"
             >
               {copiedUrl ? (
                 <>
-                  <Check size={14} />
-                  Copied!
+                  <Check size={12} className="sm:w-3.5 sm:h-3.5" />
+                  <span className="hidden sm:inline">Copied!</span>
+                  <span className="sm:hidden">Copied</span>
                 </>
               ) : (
                 <>
-                  <Copy size={14} />
+                  <Copy size={12} className="sm:w-3.5 sm:h-3.5" />
                   Copy
                 </>
               )}
@@ -120,31 +121,32 @@ export function ShareOptions({ arweaveUrl, fileId, isAuthenticated, onLoginReque
             </label>
             {shareLink ? (
               <div className="space-y-2">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <input
                     type="text"
                     value={shareLink}
                     readOnly
-                    className="flex-1 px-3 py-2 text-xs font-mono bg-white border border-gray-300 rounded-lg text-gray-600 truncate"
+                    className="flex-1 min-w-0 px-2 sm:px-3 py-1.5 sm:py-2 text-[10px] sm:text-xs font-mono bg-white border border-gray-300 rounded-lg text-gray-600 break-all"
                   />
                   <button
                     onClick={handleCopyShareLink}
-                    className="px-3 py-2 text-xs font-medium text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-neonPurple transition-colors flex items-center gap-2 flex-shrink-0"
+                    className="px-2 sm:px-3 py-1.5 sm:py-2 text-xs font-medium text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-neonPurple transition-colors flex items-center gap-1.5 sm:gap-2 flex-shrink-0"
                   >
                     {copiedShareLink ? (
                       <>
-                        <Check size={14} />
-                        Copied!
+                        <Check size={12} className="sm:w-3.5 sm:h-3.5" />
+                        <span className="hidden sm:inline">Copied!</span>
+                        <span className="sm:hidden">Copied</span>
                       </>
                     ) : (
                       <>
-                        <Copy size={14} />
+                        <Copy size={12} className="sm:w-3.5 sm:h-3.5" />
                         Copy
                       </>
                     )}
                   </button>
                 </div>
-                <p className="text-xs text-gray-500">
+                <p className="text-[10px] sm:text-xs text-gray-500">
                   This link redirects to your file on Arweave
                 </p>
               </div>
@@ -152,17 +154,17 @@ export function ShareOptions({ arweaveUrl, fileId, isAuthenticated, onLoginReque
               <button
                 onClick={handleCreateShareLink}
                 disabled={creatingShareLink}
-                className="w-full px-4 py-2 text-sm font-medium text-white bg-neonPurple rounded-lg hover:bg-neonPurple/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white bg-neonPurple rounded-lg hover:bg-neonPurple/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {creatingShareLink ? (
                   <>
-                    <Loader2 size={16} className="animate-spin" />
-                    Creating...
+                    <Loader2 size={14} className="sm:w-4 sm:h-4 animate-spin" />
+                    <span>Creating...</span>
                   </>
                 ) : (
                   <>
-                    <Share2 size={16} />
-                    Create Shareable Link
+                    <Share2 size={14} className="sm:w-4 sm:h-4" />
+                    <span className="whitespace-nowrap">Create Shareable Link</span>
                   </>
                 )}
               </button>
@@ -172,20 +174,20 @@ export function ShareOptions({ arweaveUrl, fileId, isAuthenticated, onLoginReque
             )}
           </div>
         ) : (
-          <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+          <div className="p-2.5 sm:p-3 bg-amber-50 border border-amber-200 rounded-lg">
             <div className="flex items-start gap-2">
-              <Lock size={16} className="text-amber-600 mt-0.5 flex-shrink-0" />
-              <div className="flex-1">
-                <p className="text-xs font-medium text-amber-900 mb-1">
+              <Lock size={14} className="sm:w-4 sm:h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] sm:text-xs font-medium text-amber-900 mb-1">
                   Sign in to create shareable links
                 </p>
-                <p className="text-xs text-amber-700 mb-2">
+                <p className="text-[11px] sm:text-xs text-amber-700 mb-2">
                   Shareable links make it easier to share your files with others.
                 </p>
                 {onLoginRequest && (
                   <button
                     onClick={onLoginRequest}
-                    className="text-xs font-medium text-amber-700 hover:text-amber-900 underline"
+                    className="text-[11px] sm:text-xs font-medium text-amber-700 hover:text-amber-900 underline"
                   >
                     Sign In
                   </button>

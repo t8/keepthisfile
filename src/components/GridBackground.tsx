@@ -1,9 +1,9 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 export function GridBackground() {
-  return <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
+  return <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none w-full max-w-full">
       {/* Base Grid */}
-      <div className="absolute inset-0 bg-grid-pattern bg-[size:40px_40px] opacity-30" style={{
+      <div className="absolute inset-0 bg-grid-pattern bg-[size:40px_40px] opacity-30 w-full max-w-full" style={{
       maskImage: 'linear-gradient(to bottom, transparent, black, transparent)',
       WebkitMaskImage: 'linear-gradient(to bottom, transparent 5%, black 40%, black 60%, transparent 95%)'
     }} />

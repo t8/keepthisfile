@@ -1,4 +1,5 @@
 import clientPromise from './db.js';
+import { ObjectId } from 'mongodb';
 
 export interface User {
   _id?: string;
@@ -80,16 +81,51 @@ export async function createFile(file: Omit<File, '_id' | 'createdAt'>): Promise
 export async function getFilesByUserId(userId: string): Promise<File[]> {
   const client = await clientPromise;
   const db = client.db();
-  return await db.collection<File>('files')
+  const files = await db.collection<File>('files')
     .find({ userId })
     .sort({ createdAt: -1 })
     .toArray();
+  
+  // Convert all _id fields to strings for consistency
+  return files.map(file => ({
+    ...file,
+    _id: file._id?.toString() || file._id,
+  }));
 }
 
 export async function getFileById(fileId: string): Promise<File | null> {
   const client = await clientPromise;
   const db = client.db();
-  return await db.collection<File>('files').findOne({ _id: fileId });
+  
+  // Try to find by ObjectId first (if it's a valid ObjectId string)
+  // Then fall back to string comparison
+  let query: any = { _id: fileId };
+  
+  // If the fileId looks like a MongoDB ObjectId (24 hex characters), try ObjectId lookup
+  if (/^[0-9a-fA-F]{24}$/.test(fileId)) {
+    try {
+      const objectId = new ObjectId(fileId);
+      query = { _id: objectId };
+    } catch (e) {
+      // Invalid ObjectId format, use string query
+      query = { _id: fileId };
+    }
+  }
+  
+  // Try ObjectId query first, then fallback to string if needed
+  let file = await db.collection<File>('files').findOne(query);
+  
+  // If not found and we used ObjectId query, try string query as fallback
+  if (!file && /^[0-9a-fA-F]{24}$/.test(fileId)) {
+    file = await db.collection<File>('files').findOne({ _id: fileId });
+  }
+  
+  // Convert _id to string if found
+  if (file && file._id) {
+    file._id = file._id.toString();
+  }
+  
+  return file;
 }
 
 export async function linkFilesToUser(arweaveUrls: string[], userId: string): Promise<number> {
