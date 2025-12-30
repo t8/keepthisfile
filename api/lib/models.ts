@@ -31,14 +31,6 @@ export interface UploadRequest {
   updatedAt: Date;
 }
 
-export interface ShareLink {
-  _id?: string;
-  userId: string;
-  fileId: string;
-  shareId: string; // unique short ID
-  arweaveUrl: string;
-  createdAt: Date;
-}
 
 export async function getUserByEmail(email: string): Promise<User | null> {
   const client = await clientPromise;
@@ -187,29 +179,4 @@ export async function getUploadRequestById(requestId: string): Promise<UploadReq
   return await db.collection<UploadRequest>('uploadRequests').findOne({ _id: requestId });
 }
 
-export async function createShareLink(shareLink: Omit<ShareLink, '_id' | 'createdAt'>): Promise<ShareLink> {
-  const client = await clientPromise;
-  const db = client.db();
-  const shareLinkDoc: ShareLink = {
-    ...shareLink,
-    createdAt: new Date(),
-  };
-  const result = await db.collection<ShareLink>('shareLinks').insertOne(shareLinkDoc);
-  return { ...shareLinkDoc, _id: result.insertedId.toString() };
-}
-
-export async function getShareLinkByShareId(shareId: string): Promise<ShareLink | null> {
-  const client = await clientPromise;
-  const db = client.db();
-  return await db.collection<ShareLink>('shareLinks').findOne({ shareId });
-}
-
-export async function getShareLinksByUserId(userId: string): Promise<ShareLink[]> {
-  const client = await clientPromise;
-  const db = client.db();
-  return await db.collection<ShareLink>('shareLinks')
-    .find({ userId })
-    .sort({ createdAt: -1 })
-    .toArray();
-}
 

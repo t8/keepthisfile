@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Copy, Check, Share2, Lock, Loader2 } from 'lucide-react';
-import { createShareLink, getAuthToken } from '../lib/api';
+import { Copy, Check, Share2 } from 'lucide-react';
 
 interface ShareOptionsProps {
   arweaveUrl: string;
@@ -12,10 +11,12 @@ interface ShareOptionsProps {
 
 export function ShareOptions({ arweaveUrl, fileId, isAuthenticated, onLoginRequest }: ShareOptionsProps) {
   const [copiedUrl, setCopiedUrl] = useState(false);
-  const [shareLink, setShareLink] = useState<string | null>(null);
-  const [creatingShareLink, setCreatingShareLink] = useState(false);
-  const [shareError, setShareError] = useState<string | null>(null);
-  const [copiedShareLink, setCopiedShareLink] = useState(false);
+  const [canShare, setCanShare] = useState(false);
+
+  useEffect(() => {
+    // Check if Web Share API is available
+    setCanShare(typeof navigator !== 'undefined' && 'share' in navigator);
+  }, []);
 
   const copyToClipboard = async (text: string, setCopied: (value: boolean) => void) => {
     try {
@@ -31,40 +32,20 @@ export function ShareOptions({ arweaveUrl, fileId, isAuthenticated, onLoginReque
     copyToClipboard(arweaveUrl, setCopiedUrl);
   };
 
-  const handleCopyShareLink = () => {
-    if (shareLink) {
-      copyToClipboard(shareLink, setCopiedShareLink);
-    }
-  };
-
-  const handleCreateShareLink = async () => {
-    if (!isAuthenticated) {
-      if (onLoginRequest) {
-        onLoginRequest();
-      }
-      return;
-    }
-
-    setCreatingShareLink(true);
-    setShareError(null);
+  const handleNativeShare = async () => {
+    if (!canShare) return;
 
     try {
-      const result = await createShareLink(
-        fileId || arweaveUrl,
-        fileId ? 'fileId' : 'arweaveUrl'
-      );
-      
-      if (result.error) {
-        setShareError(result.error);
-      } else if (result.data?.shareUrl) {
-        setShareLink(result.data.shareUrl);
-      } else {
-        setShareError('Unexpected response from server');
-      }
+      await navigator.share({
+        title: 'Arweave File',
+        text: 'Check out this file on Arweave',
+        url: arweaveUrl,
+      });
     } catch (err: any) {
-      setShareError(err?.message || 'Failed to create shareable link');
-    } finally {
-      setCreatingShareLink(false);
+      // User cancelled or error occurred - silently fail
+      if (err.name !== 'AbortError') {
+        console.error('Failed to share:', err);
+      }
     }
   };
 
@@ -75,14 +56,15 @@ export function ShareOptions({ arweaveUrl, fileId, isAuthenticated, onLoginReque
       transition={{ delay: 0.4 }}
       className="space-y-3 sm:space-y-4 w-full"
     >
-      <div className="p-3 sm:p-4 bg-gray-50 rounded-xl border border-gray-200">
-        <h3 className="text-xs sm:text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-          <Share2 size={14} className="sm:w-4 sm:h-4 text-neonPurple" />
-          Share File
-        </h3>
+      <div className="bg-gray-50 rounded-xl border border-gray-200">
+        <div className="p-3 sm:p-4">
+          <h3 className="text-xs sm:text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+            <Share2 size={14} className="sm:w-4 sm:h-4 text-neonPurple" />
+            Share File
+          </h3>
 
-        {/* Copy Arweave URL */}
-        <div className="mb-3 sm:mb-4">
+          {/* Copy Arweave URL */}
+          <div>
           <label className="block text-xs font-medium text-gray-700 mb-2">
             Arweave URL
           </label>
@@ -113,91 +95,20 @@ export function ShareOptions({ arweaveUrl, fileId, isAuthenticated, onLoginReque
           </div>
         </div>
 
-        {/* Shareable Link Section */}
-        {isAuthenticated ? (
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-2">
-              Shareable Link
-            </label>
-            {shareLink ? (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <input
-                    type="text"
-                    value={shareLink}
-                    readOnly
-                    className="flex-1 min-w-0 px-2 sm:px-3 py-1.5 sm:py-2 text-[10px] sm:text-xs font-mono bg-white border border-gray-300 rounded-lg text-gray-600 break-all"
-                  />
-                  <button
-                    onClick={handleCopyShareLink}
-                    className="px-2 sm:px-3 py-1.5 sm:py-2 text-xs font-medium text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-neonPurple transition-colors flex items-center gap-1.5 sm:gap-2 flex-shrink-0"
-                  >
-                    {copiedShareLink ? (
-                      <>
-                        <Check size={12} className="sm:w-3.5 sm:h-3.5" />
-                        <span className="hidden sm:inline">Copied!</span>
-                        <span className="sm:hidden">Copied</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy size={12} className="sm:w-3.5 sm:h-3.5" />
-                        Copy
-                      </>
-                    )}
-                  </button>
-                </div>
-                <p className="text-[10px] sm:text-xs text-gray-500">
-                  This link redirects to your file on Arweave
-                </p>
-              </div>
-            ) : (
+          {/* Native Share Button - Mobile Only */}
+          {canShare && (
+            <div className="mt-3 sm:hidden">
               <button
-                onClick={handleCreateShareLink}
-                disabled={creatingShareLink}
-                className="w-full px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white bg-neonPurple rounded-lg hover:bg-neonPurple/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                onClick={handleNativeShare}
+                className="w-full px-3 py-2 text-xs font-medium text-white bg-neonPurple rounded-lg hover:bg-neonPurple/90 transition-colors flex items-center justify-center gap-2"
               >
-                {creatingShareLink ? (
-                  <>
-                    <Loader2 size={14} className="sm:w-4 sm:h-4 animate-spin" />
-                    <span>Creating...</span>
-                  </>
-                ) : (
-                  <>
-                    <Share2 size={14} className="sm:w-4 sm:h-4" />
-                    <span className="whitespace-nowrap">Create Shareable Link</span>
-                  </>
-                )}
+                <Share2 size={14} />
+                <span>Share</span>
               </button>
-            )}
-            {shareError && (
-              <p className="mt-2 text-xs text-red-600">{shareError}</p>
-            )}
-          </div>
-        ) : (
-          <div className="p-2.5 sm:p-3 bg-amber-50 border border-amber-200 rounded-lg">
-            <div className="flex items-start gap-2">
-              <Lock size={14} className="sm:w-4 sm:h-4 text-amber-600 mt-0.5 flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-[11px] sm:text-xs font-medium text-amber-900 mb-1">
-                  Sign in to create shareable links
-                </p>
-                <p className="text-[11px] sm:text-xs text-amber-700 mb-2">
-                  Shareable links make it easier to share your files with others.
-                </p>
-                {onLoginRequest && (
-                  <button
-                    onClick={onLoginRequest}
-                    className="text-[11px] sm:text-xs font-medium text-amber-700 hover:text-amber-900 underline"
-                  >
-                    Sign In
-                  </button>
-                )}
-              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </motion.div>
   );
 }
-

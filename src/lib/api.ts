@@ -276,46 +276,4 @@ export async function linkFilesToUser(arweaveUrls: string[]): Promise<ApiRespons
   return await response.json();
 }
 
-// Share API
-export async function createShareLink(
-  fileIdOrUrl: string,
-  type: 'fileId' | 'arweaveUrl' = 'fileId'
-): Promise<ApiResponse<{
-  shareId: string;
-  shareUrl: string;
-  arweaveUrl: string;
-}>> {
-  const token = getAuthToken();
-  if (!token) {
-    return { error: 'Authentication required' };
-  }
-
-  const body = type === 'fileId' 
-    ? { fileId: fileIdOrUrl }
-    : { arweaveUrl: fileIdOrUrl };
-
-  const response = await fetch(`${API_BASE}/share/create`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}: ${response.statusText}` }));
-    return { error: errorData.error || `Failed to create share link with status ${response.status}` };
-  }
-
-  const result = await response.json();
-  return {
-    success: result.success,
-    data: result.data || {
-      shareId: result.shareId,
-      shareUrl: result.shareUrl,
-      arweaveUrl: result.arweaveUrl,
-    },
-  };
-}
 

@@ -190,19 +190,19 @@ export function FileLibrary() {
                     {file.arweaveTxId.substring(0, 12)}...
                   </span>
                 </div>
-                
-                {/* Share Options */}
-                {isAuthenticated && (
-                  <div className="mt-3 pt-3 border-t border-gray-100">
-                    <ShareOptions
-                      arweaveUrl={file.arweaveUrl}
-                      fileId={file.id}
-                      isAuthenticated={isAuthenticated}
-                    />
-                  </div>
-                )}
               </div>
             </div>
+            
+            {/* Share Options - Full width below the columns */}
+            {isAuthenticated && (
+              <div className="mt-3 pt-3 border-t border-gray-100 -mx-3 sm:-mx-4 px-3 sm:px-4">
+                <ShareOptions
+                  arweaveUrl={file.arweaveUrl}
+                  fileId={file.id}
+                  isAuthenticated={isAuthenticated}
+                />
+              </div>
+            )}
           </motion.div>
         ))}
       </div>
