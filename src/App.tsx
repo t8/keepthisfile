@@ -4,6 +4,7 @@ import { GridBackground } from './components/GridBackground';
 import { UploadVault } from './components/UploadVault';
 import { FileLibrary } from './components/FileLibrary';
 import { AuthModal } from './components/AuthModal';
+import { FAQ } from './components/FAQ';
 import { motion } from 'framer-motion';
 import { Database, LogOut, Upload, FolderOpen, Loader2 } from 'lucide-react';
 import { getCurrentUser, clearAuthToken, getAuthToken, linkFilesToUser } from './lib/api';
@@ -247,6 +248,41 @@ export function App() {
           </motion.div>
         </div>
 
+        {/* Stats Section */}
+        <motion.div initial={{
+        opacity: 0
+      }} animate={{
+        opacity: 1
+      }} transition={{
+        delay: 0.8,
+        duration: 0.8
+      }} className="mb-8 sm:mb-12 grid grid-cols-3 gap-2 sm:gap-4 md:gap-8 text-center px-2 w-full max-w-4xl">
+          <div>
+            <p className="text-lg sm:text-xl md:text-2xl font-bold font-display text-gray-900">
+              200+
+            </p>
+            <p className="text-[9px] sm:text-[10px] md:text-xs font-mono text-gray-500 uppercase mt-1">
+              Years Guaranteed
+            </p>
+          </div>
+          <div>
+            <p className="text-lg sm:text-xl md:text-2xl font-bold font-display text-gray-900">
+              100%
+            </p>
+            <p className="text-[9px] sm:text-[10px] md:text-xs font-mono text-gray-500 uppercase mt-1">
+              Uptime
+            </p>
+          </div>
+          <div>
+            <p className="text-lg sm:text-xl md:text-2xl font-bold font-display text-gray-900">
+              Global
+            </p>
+            <p className="text-[9px] sm:text-[10px] md:text-xs font-mono text-gray-500 uppercase mt-1">
+              Redundancy
+            </p>
+          </div>
+        </motion.div>
+
         <Routes>
           <Route
             path="/"
@@ -281,40 +317,8 @@ export function App() {
           />
         </Routes>
 
-        {/* Footer Stats */}
-        <motion.div initial={{
-        opacity: 0
-      }} animate={{
-        opacity: 1
-      }} transition={{
-        delay: 0.8,
-        duration: 0.8
-      }} className="mt-12 sm:mt-16 grid grid-cols-2 md:grid-cols-3 gap-4 sm:gap-8 text-center px-2 w-full max-w-4xl">
-          <div>
-            <p className="text-xl sm:text-2xl font-bold font-display text-gray-900">
-              200+
-            </p>
-            <p className="text-[10px] sm:text-xs font-mono text-gray-500 uppercase mt-1">
-              Years Guaranteed
-            </p>
-          </div>
-          <div>
-            <p className="text-xl sm:text-2xl font-bold font-display text-gray-900">
-              100%
-            </p>
-            <p className="text-[10px] sm:text-xs font-mono text-gray-500 uppercase mt-1">
-              Uptime
-            </p>
-          </div>
-          <div className="col-span-2 md:col-span-1">
-            <p className="text-xl sm:text-2xl font-bold font-display text-gray-900">
-              Global
-            </p>
-            <p className="text-[10px] sm:text-xs font-mono text-gray-500 uppercase mt-1">
-              Redundancy
-            </p>
-          </div>
-        </motion.div>
+        {/* FAQ Section - Only show on homepage */}
+        {location.pathname === '/' && <FAQ />}
       </main>
 
       <AuthModal 
