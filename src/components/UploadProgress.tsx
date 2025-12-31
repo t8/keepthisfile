@@ -4,15 +4,21 @@ import { Check, Loader2 } from 'lucide-react';
 interface UploadProgressProps {
   progress: number;
   status: 'idle' | 'uploading' | 'complete';
+  statusMessage?: string;
 }
 export function UploadProgress({
   progress,
-  status
+  status,
+  statusMessage
 }: UploadProgressProps) {
+  const displayMessage = status === 'complete' 
+    ? 'Transmission Complete' 
+    : (statusMessage || 'Uploading to Arweave...');
+  
   return <div className="w-full space-y-2">
       <div className="flex justify-between items-center text-xs font-mono uppercase tracking-wider">
         <span className="text-gray-500">
-          {status === 'complete' ? 'Transmission Complete' : 'Uploading to Arweave...'}
+          {displayMessage}
         </span>
         <span className={status === 'complete' ? 'text-neonGreen' : 'text-neonPurple'}>
           {Math.round(progress)}%

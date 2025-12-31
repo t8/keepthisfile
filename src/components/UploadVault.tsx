@@ -27,6 +27,7 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
   const { showError } = useError();
   const [status, setStatus] = useState<'idle' | 'uploading' | 'complete' | 'error' | 'payment-required'>('idle');
   const [progress, setProgress] = useState(0);
+  const [statusMessage, setStatusMessage] = useState<string>('Preparing file...');
   const [fileName, setFileName] = useState<string>('');
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
   const [error, setError] = useState<string>('');
@@ -138,7 +139,102 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
   const uploadFile = async (file: File, sessionId: string | null) => {
     console.log('uploadFile called with:', { fileName: file.name, sessionId });
     setStatus('uploading');
-    setProgress(20);
+    setProgress(0);
+    setStatusMessage('Preparing file...');
+
+    // Progress simulation with ability to complete early
+    const progressState = {
+      intervals: [] as NodeJS.Timeout[],
+      currentProgress: 0,
+      clearAll: () => {
+        progressState.intervals.forEach(interval => clearInterval(interval));
+        progressState.intervals = [];
+      }
+    };
+
+    const simulateProgress = () => {
+      // Phase 1: Preparing file (0-15%)
+      setStatusMessage('Preparing file...');
+      const phase1Interval = setInterval(() => {
+        progressState.currentProgress += 2;
+        if (progressState.currentProgress <= 15) {
+          setProgress(progressState.currentProgress);
+        } else {
+          clearInterval(phase1Interval);
+        }
+      }, 50);
+      progressState.intervals.push(phase1Interval);
+
+      // Phase 2: Sending to server (15-30%)
+      setTimeout(() => {
+        setStatusMessage('Sending to server...');
+        const phase2Interval = setInterval(() => {
+          progressState.currentProgress += 1.5;
+          if (progressState.currentProgress <= 30) {
+            setProgress(progressState.currentProgress);
+          } else {
+            clearInterval(phase2Interval);
+          }
+        }, 80);
+        progressState.intervals.push(phase2Interval);
+      }, 400);
+
+      // Phase 3: Uploading to Arweave (30-85%)
+      setTimeout(() => {
+        setStatusMessage('Uploading to Arweave...');
+        const phase3Interval = setInterval(() => {
+          progressState.currentProgress += 1;
+          if (progressState.currentProgress <= 85) {
+            setProgress(progressState.currentProgress);
+          } else {
+            clearInterval(phase3Interval);
+          }
+        }, 100);
+        progressState.intervals.push(phase3Interval);
+      }, 1000);
+
+      // Phase 4: Finalizing (85-100%)
+      setTimeout(() => {
+        setStatusMessage('Finalizing...');
+        const phase4Interval = setInterval(() => {
+          progressState.currentProgress += 1.5;
+          if (progressState.currentProgress >= 100) {
+            setProgress(100);
+            clearInterval(phase4Interval);
+          } else {
+            setProgress(progressState.currentProgress);
+          }
+        }, 60);
+        progressState.intervals.push(phase4Interval);
+      }, 3000);
+    };
+
+    // Complete progress to 100% quickly
+    const completeProgress = (): Promise<void> => {
+      return new Promise((resolve) => {
+        progressState.clearAll();
+        if (progressState.currentProgress >= 100) {
+          setProgress(100);
+          resolve();
+          return;
+        }
+        setStatusMessage('Finalizing...');
+        const completeInterval = setInterval(() => {
+          progressState.currentProgress += 5;
+          if (progressState.currentProgress >= 100) {
+            setProgress(100);
+            clearInterval(completeInterval);
+            resolve();
+          } else {
+            setProgress(progressState.currentProgress);
+          }
+        }, 30);
+        progressState.intervals.push(completeInterval);
+      });
+    };
+
+    // Start progress simulation
+    simulateProgress();
 
     try {
       let result;
@@ -152,6 +248,12 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
         console.log('Calling uploadFree...');
         result = await uploadFree(file);
       }
+
+      // When upload completes, ensure progress reaches 100%
+      await completeProgress();
+      
+      // Small delay to ensure progress bar is fully rendered at 100%
+      await new Promise(resolve => setTimeout(resolve, 200));
 
       console.log('Upload result received:', result);
       console.log('Result type:', typeof result);
@@ -172,11 +274,13 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
           }
         }
         
+        progressState.clearAll();
         setError(errorMsg);
         if (!shouldKeepIdle) {
           setStatus('error');
         }
         setProgress(0);
+        setStatusMessage('Preparing file...');
         showError(errorMsg);
         return;
       }
@@ -231,19 +335,23 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
           hasArweaveUrl: !!fileData?.arweaveUrl,
           fileDataKeys: fileData ? Object.keys(fileData) : 'null',
         });
+        progressState.clearAll();
         const errorMsg = 'Unexpected response from server. Please try again.';
         setError(errorMsg);
         setStatus('error');
         setProgress(0);
+        setStatusMessage('Preparing file...');
         showError(errorMsg);
       }
     } catch (err: any) {
+      progressState.clearAll();
       console.error('Upload exception:', err);
       console.error('Error stack:', err?.stack);
       const errorMsg = err?.message || 'Upload failed. Please try again.';
       setError(errorMsg);
       setStatus('error');
       setProgress(0);
+      setStatusMessage('Preparing file...');
       showError(errorMsg);
     }
   };
@@ -266,7 +374,8 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
       try {
         // Verify payment was completed
         setStatus('uploading');
-        setProgress(20);
+        setProgress(0);
+        setStatusMessage('Verifying payment...');
         console.log('[UPLOAD-VAULT] Verifying payment session...');
         const verifyResult = await verifyUploadSession(sessionId);
         
@@ -386,6 +495,7 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
   const resetUpload = () => {
     setStatus('idle');
     setProgress(0);
+    setStatusMessage('Preparing file...');
     setFileName('');
     setUploadResult(null);
     setError('');
@@ -468,7 +578,7 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
                       {fileName}
                     </p>
                     <p className="text-[10px] sm:text-xs text-gray-500 font-mono">
-                      {status === 'uploading' ? 'ENCRYPTING & SEALING...' : 'SECURELY STORED'}
+                      {status === 'uploading' ? statusMessage.toUpperCase() : 'SECURELY STORED'}
                     </p>
                   </div>
                 </motion.div>
@@ -488,7 +598,7 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
                   </motion.div>}
 
                 {/* Progress Animation */}
-                {status === 'uploading' && <UploadProgress progress={progress} status={status} />}
+                {status === 'uploading' && <UploadProgress progress={progress} status={status} statusMessage={statusMessage} />}
 
                 {/* Success Display */}
                 {status === 'complete' && uploadResult && <motion.div initial={{
@@ -512,9 +622,6 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
                           >
                             {uploadResult.arweaveUrl}
                           </a>
-                          <p className="text-[10px] sm:text-xs text-gray-500 mt-2 font-mono break-all">
-                            TX ID: {uploadResult.txId}
-                          </p>
                         </>
                       ) : (
                         <div className="space-y-2">
