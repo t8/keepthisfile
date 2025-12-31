@@ -7,10 +7,12 @@ import { AuthModal } from './components/AuthModal';
 import { motion } from 'framer-motion';
 import { Database, LogOut, Upload, FolderOpen, Loader2 } from 'lucide-react';
 import { getCurrentUser, clearAuthToken, getAuthToken, linkFilesToUser } from './lib/api';
+import { useError } from './contexts/ErrorContext';
 
 export function App() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { showError } = useError();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -34,10 +36,12 @@ export function App() {
             localStorage.removeItem('anonymous-uploads');
           } else if (linkResult.error) {
             console.error('[App] Failed to link anonymous uploads:', linkResult.error);
+            showError(linkResult.error);
           }
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('[App] Error linking anonymous uploads:', err);
+        showError(err?.message || 'Failed to link anonymous uploads');
       }
     };
     
@@ -69,7 +73,7 @@ export function App() {
     }
     
     if (authError) {
-      alert(authError);
+      showError(authError);
       window.history.replaceState({}, document.title, window.location.pathname);
     }
     
@@ -92,8 +96,9 @@ export function App() {
           setIsAuthenticated(false);
           setUserEmail(null);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('[App] Auth check error:', error);
+        showError(error?.message || 'Failed to verify authentication');
         clearAuthToken();
         setIsAuthenticated(false);
         setUserEmail(null);
@@ -122,11 +127,13 @@ export function App() {
             localStorage.removeItem('anonymous-uploads');
           } else if (linkResult.error) {
             console.error('[App] Failed to link anonymous uploads:', linkResult.error);
+            showError(linkResult.error);
             // Keep them in localStorage to try again later
           }
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('[App] Error linking anonymous uploads:', err);
+        showError(err?.message || 'Failed to link anonymous uploads');
         // Non-critical error, continue with login
       }
     }

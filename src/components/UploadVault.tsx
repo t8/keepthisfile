@@ -7,6 +7,7 @@ import { ShareOptions } from './ShareOptions';
 import { FileText, Lock, ShieldCheck, RefreshCw, AlertCircle } from 'lucide-react';
 import { uploadFree, uploadPaid, createUploadSession, getAuthToken, verifyUploadSession } from '../lib/api';
 import { FREE_MAX_BYTES } from '../lib/constants';
+import { useError } from '../contexts/ErrorContext';
 
 interface UploadResult {
   txId: string;
@@ -23,6 +24,7 @@ interface UploadVaultProps {
 }
 
 export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProps) {
+  const { showError } = useError();
   const [status, setStatus] = useState<'idle' | 'uploading' | 'complete' | 'error' | 'payment-required'>('idle');
   const [progress, setProgress] = useState(0);
   const [fileName, setFileName] = useState<string>('');
@@ -47,8 +49,13 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
     if (fileSize > FREE_MAX_BYTES) {
       // Require authentication and payment
       if (!isAuthenticated) {
-        setError('Authentication required for files over 100KB. Please sign in first.');
-        setStatus('error');
+        const errorMsg = 'Your file is greater than 100kb in size. Please sign in to upload large files';
+        setError(errorMsg);
+        setStatus('idle'); // Keep status as 'idle' so upload field stays visible
+        showError(errorMsg);
+        // Clear the selected file so user can try again
+        setSelectedFile(null);
+        setFileName('');
         return;
       }
 
@@ -62,8 +69,10 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
         
         if (sessionResult.error) {
           console.error('[UPLOAD-VAULT] Session creation error:', sessionResult.error);
-          setError(sessionResult.error);
+          const errorMsg = sessionResult.error;
+          setError(errorMsg);
           setStatus('error');
+          showError(errorMsg);
           return;
         }
 
@@ -106,14 +115,18 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
           return;
         } else {
           console.error('[UPLOAD-VAULT] No URL in response data:', sessionResult);
-          setError('Failed to get checkout URL from server');
+          const errorMsg = 'Failed to get checkout URL from server';
+          setError(errorMsg);
           setStatus('error');
+          showError(errorMsg);
           return;
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('[UPLOAD-VAULT] Exception creating payment session:', err);
-        setError('Failed to create payment session');
+        const errorMsg = err?.message || 'Failed to create payment session';
+        setError(errorMsg);
         setStatus('error');
+        showError(errorMsg);
         return;
       }
     } else {
@@ -146,9 +159,25 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
       
       if (result?.error) {
         console.error('Upload API error:', result.error);
-        setError(result.error);
-        setStatus('error');
+        let errorMsg = result.error;
+        let shouldKeepIdle = false;
+        
+        // Convert API error about file size limit to our custom message for unauthenticated users
+        if (errorMsg.includes('exceeds free tier limit') || errorMsg.includes('File exceeds free tier')) {
+          if (!isAuthenticated) {
+            errorMsg = 'Your file is greater than 100kb in size. Please sign in to upload large files';
+            shouldKeepIdle = true; // Keep upload field visible
+            setSelectedFile(null);
+            setFileName('');
+          }
+        }
+        
+        setError(errorMsg);
+        if (!shouldKeepIdle) {
+          setStatus('error');
+        }
         setProgress(0);
+        showError(errorMsg);
         return;
       }
 
@@ -202,16 +231,20 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
           hasArweaveUrl: !!fileData?.arweaveUrl,
           fileDataKeys: fileData ? Object.keys(fileData) : 'null',
         });
-        setError('Unexpected response from server. Check console for details.');
+        const errorMsg = 'Unexpected response from server. Please try again.';
+        setError(errorMsg);
         setStatus('error');
         setProgress(0);
+        showError(errorMsg);
       }
     } catch (err: any) {
       console.error('Upload exception:', err);
       console.error('Error stack:', err?.stack);
-      setError(err?.message || 'Upload failed. Please try again.');
+      const errorMsg = err?.message || 'Upload failed. Please try again.';
+      setError(errorMsg);
       setStatus('error');
       setProgress(0);
+      showError(errorMsg);
     }
   };
 
@@ -239,8 +272,10 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
         
         if (verifyResult.error) {
           console.error('[UPLOAD-VAULT] Payment verification failed:', verifyResult.error);
-          setError(verifyResult.error || 'Payment verification failed');
+          const errorMsg = verifyResult.error || 'Payment verification failed';
+          setError(errorMsg);
           setStatus('error');
+          showError(errorMsg);
           return;
         }
 
@@ -263,16 +298,20 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
                                retryResult.data?.paymentStatus === 'paid';
             
             if (!retryIsPaid) {
-              setError('Payment is still processing. Please wait a moment and refresh the page.');
+              const errorMsg = 'Payment is still processing. Please wait a moment and refresh the page.';
+              setError(errorMsg);
               setStatus('error');
+              showError(errorMsg);
               return;
             }
             
             // Payment confirmed on retry, continue
             console.log('[UPLOAD-VAULT] Payment confirmed on retry');
           } else {
-            setError('Payment not completed. Please try again.');
+            const errorMsg = 'Payment not completed. Please try again.';
+            setError(errorMsg);
             setStatus('error');
+            showError(errorMsg);
             return;
           }
         }
@@ -285,8 +324,10 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
         
         if (!pendingUploadStr) {
           console.error('[UPLOAD-VAULT] No pending upload found in sessionStorage');
-          setError('File not found. Please select your file again.');
+          const errorMsg = 'File not found. Please select your file again.';
+          setError(errorMsg);
           setStatus('error');
+          showError(errorMsg);
           return;
         }
 
@@ -311,8 +352,10 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
 
         if (!file) {
           console.error('[UPLOAD-VAULT] Could not reconstruct file');
-          setError('File not found. Please select your file again.');
+          const errorMsg = 'File not found. Please select your file again.';
+          setError(errorMsg);
           setStatus('error');
+          showError(errorMsg);
           return;
         }
 
@@ -330,8 +373,10 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
         sessionStorage.removeItem('pending-upload-file');
       } catch (err: any) {
         console.error('[UPLOAD-VAULT] Error handling payment return:', err);
-        setError(err?.message || 'Failed to process payment return');
+        const errorMsg = err?.message || 'Failed to process payment return';
+        setError(errorMsg);
         setStatus('error');
+        showError(errorMsg);
       }
     };
 

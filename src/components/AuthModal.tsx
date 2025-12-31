@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Mail, Loader2 } from 'lucide-react';
 import { requestMagicLink, getCurrentUser, setAuthToken, getAuthToken, clearAuthToken } from '../lib/api';
+import { useError } from '../contexts/ErrorContext';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -10,6 +11,8 @@ interface AuthModalProps {
 }
 
 export function AuthModal({ isOpen, onClose, onLogin }: AuthModalProps) {
+  const { showError } = useError();
+  
   // Lock document scroll when modal is open
   useEffect(() => {
     if (isOpen) {
@@ -58,14 +61,18 @@ export function AuthModal({ isOpen, onClose, onLogin }: AuthModalProps) {
       const result = await requestMagicLink(email);
       
       if (result.error) {
-        setMessage({ type: 'error', text: result.error });
+        const errorMsg = result.error;
+        setMessage({ type: 'error', text: errorMsg });
+        showError(errorMsg);
       } else {
         setEmailSent(true);
         // Start polling for authentication
         startPolling();
       }
-    } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to send magic link. Please try again.' });
+    } catch (error: any) {
+      const errorMsg = error?.message || 'Failed to send magic link. Please try again.';
+      setMessage({ type: 'error', text: errorMsg });
+      showError(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -114,8 +121,9 @@ export function AuthModal({ isOpen, onClose, onLogin }: AuthModalProps) {
             lastToken = null;
           }
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('[AuthModal] Polling error:', error);
+        // Don't show error for polling failures - they're expected
         // Continue polling on error
       }
     }, 2000); // Poll every 2 seconds

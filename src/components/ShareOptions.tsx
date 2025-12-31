@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Copy, Check, Share2 } from 'lucide-react';
+import { useError } from '../contexts/ErrorContext';
 
 interface ShareOptionsProps {
   arweaveUrl: string;
@@ -10,6 +11,7 @@ interface ShareOptionsProps {
 }
 
 export function ShareOptions({ arweaveUrl, fileId, isAuthenticated, onLoginRequest }: ShareOptionsProps) {
+  const { showError } = useError();
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [canShare, setCanShare] = useState(false);
 
@@ -23,8 +25,9 @@ export function ShareOptions({ arweaveUrl, fileId, isAuthenticated, onLoginReque
       await navigator.clipboard.writeText(text);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to copy:', err);
+      showError('Failed to copy to clipboard. Please try again.');
     }
   };
 
@@ -42,9 +45,10 @@ export function ShareOptions({ arweaveUrl, fileId, isAuthenticated, onLoginReque
         url: arweaveUrl,
       });
     } catch (err: any) {
-      // User cancelled or error occurred - silently fail
+      // User cancelled or error occurred
       if (err.name !== 'AbortError') {
         console.error('Failed to share:', err);
+        showError('Failed to share. Please try again.');
       }
     }
   };

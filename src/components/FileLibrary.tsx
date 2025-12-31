@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { FileText, ExternalLink, Copy, Check, Loader2, FolderOpen, Image as ImageIcon } from 'lucide-react';
 import { getUserFiles, getAuthToken } from '../lib/api';
 import { ShareOptions } from './ShareOptions';
+import { useError } from '../contexts/ErrorContext';
 
 interface File {
   id: string;
@@ -15,6 +16,7 @@ interface File {
 }
 
 export function FileLibrary() {
+  const { showError } = useError();
   const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
@@ -33,12 +35,16 @@ export function FileLibrary() {
       const result = await getUserFiles();
       
       if (result.error) {
-        setError(result.error);
+        const errorMsg = result.error;
+        setError(errorMsg);
+        showError(errorMsg);
       } else if (result.data?.files) {
         setFiles(result.data.files);
       }
     } catch (err: any) {
-      setError('Failed to load files');
+      const errorMsg = err?.message || 'Failed to load files';
+      setError(errorMsg);
+      showError(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -49,8 +55,9 @@ export function FileLibrary() {
       await navigator.clipboard.writeText(text);
       setCopiedId(id);
       setTimeout(() => setCopiedId(null), 2000);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to copy:', err);
+      showError('Failed to copy to clipboard. Please try again.');
     }
   };
 
