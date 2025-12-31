@@ -134,15 +134,82 @@ export async function createUploadSession(sizeBytes: number): Promise<ApiRespons
   url: string;
   amount: number;
 }>> {
+  try {
+    const token = localStorage.getItem('auth-token');
+    console.log('[API] Creating upload session, sizeBytes:', sizeBytes);
+    
+    const timeoutMs = 30000; // 30 second timeout
+    
+    const fetchPromise = (async () => {
+      const response = await fetch(`${API_BASE}/payments/create-upload-session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: JSON.stringify({ sizeBytes }),
+      });
+      
+      console.log('[API] Response received! Status:', response.status, response.statusText);
+      console.log('[API] Response headers:', Object.fromEntries(response.headers.entries()));
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}: ${response.statusText}` }));
+        console.error('[API] Upload session creation failed:', errorData);
+        return { error: errorData.error || `Upload session creation failed with status ${response.status}` };
+      }
+
+      // Read as text first, then parse (similar to uploadFree)
+      const text = await response.text();
+      console.log('[API] Response text:', text);
+      
+      let jsonResponse;
+      try {
+        jsonResponse = JSON.parse(text);
+      } catch (parseError) {
+        console.error('[API] Failed to parse JSON:', parseError, 'Text:', text);
+        return { error: 'Invalid response from server' };
+      }
+      
+      console.log('[API] Upload session response received:', jsonResponse);
+      return jsonResponse;
+    })();
+
+    const timeoutPromise = new Promise<ApiResponse<any>>((_, reject) => {
+      setTimeout(() => reject(new Error('Upload session creation timed out after 30 seconds')), timeoutMs);
+    });
+
+    return await Promise.race([fetchPromise, timeoutPromise]);
+  } catch (error: any) {
+    console.error('[API] Exception creating upload session:', error);
+    return { 
+      error: error.message || 'Network error: Failed to create upload session. Please check your connection and try again.' 
+    };
+  }
+}
+
+export async function verifyUploadSession(sessionId: string): Promise<ApiResponse<{
+  sessionId: string;
+  status: string;
+  expectedSizeBytes: number;
+  userId: string;
+  paymentStatus?: string;
+  stripeStatus?: string;
+}>> {
   const token = localStorage.getItem('auth-token');
-  const response = await fetch(`${API_BASE}/payments/create-upload-session`, {
-    method: 'POST',
+  const response = await fetch(`${API_BASE}/upload/success?session_id=${encodeURIComponent(sessionId)}`, {
+    method: 'GET',
     headers: {
       'Content-Type': 'application/json',
       ...(token && { Authorization: `Bearer ${token}` }),
     },
-    body: JSON.stringify({ sizeBytes }),
   });
+  
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}: ${response.statusText}` }));
+    return { error: errorData.error || `Failed to verify session with status ${response.status}` };
+  }
+  
   return await response.json();
 }
 

@@ -9,20 +9,53 @@ export async function readJsonBody(req: VercelRequest): Promise<any> {
     return await req.json();
   }
   
-  // Node.js IncomingMessage - read from stream
+  // Node.js IncomingMessage - read from stream with timeout
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     const incomingReq = req as IncomingMessage;
-    incomingReq.on('data', (chunk: Buffer) => chunks.push(chunk));
-    incomingReq.on('end', () => {
-      try {
-        const body = Buffer.concat(chunks).toString('utf-8');
-        resolve(JSON.parse(body));
-      } catch (error) {
-        reject(new Error('Invalid JSON in request body'));
+    let resolved = false;
+    
+    // Set a timeout to prevent hanging (10 seconds)
+    const timeout = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        reject(new Error('Request body read timeout'));
+      }
+    }, 10000);
+    
+    const cleanup = () => {
+      clearTimeout(timeout);
+      if (!resolved) {
+        resolved = true;
+      }
+    };
+    
+    incomingReq.on('data', (chunk: Buffer) => {
+      if (!resolved) {
+        chunks.push(chunk);
       }
     });
-    incomingReq.on('error', reject);
+    
+    incomingReq.on('end', () => {
+      if (!resolved) {
+        try {
+          const body = Buffer.concat(chunks).toString('utf-8');
+          const parsed = JSON.parse(body);
+          cleanup();
+          resolve(parsed);
+        } catch (error) {
+          cleanup();
+          reject(new Error('Invalid JSON in request body'));
+        }
+      }
+    });
+    
+    incomingReq.on('error', (err) => {
+      cleanup();
+      if (!resolved) {
+        reject(err);
+      }
+    });
   });
 }
 

@@ -95,7 +95,7 @@ export async function getCurrentUser(request: Request | { headers: { authorizati
   return payload;
 }
 
-export async function requireAuth(request: Request): Promise<{ email: string; userId: string }> {
+export async function requireAuth(request: Request | { headers: { authorization?: string | string[]; cookie?: string | string[] } }): Promise<{ email: string; userId: string }> {
   const user = await getCurrentUser(request);
   if (!user) {
     throw new Error('Unauthorized');

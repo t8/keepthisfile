@@ -5,7 +5,7 @@ import { UploadVault } from './components/UploadVault';
 import { FileLibrary } from './components/FileLibrary';
 import { AuthModal } from './components/AuthModal';
 import { motion } from 'framer-motion';
-import { Database, LogOut, Upload, FolderOpen } from 'lucide-react';
+import { Database, LogOut, Upload, FolderOpen, Loader2 } from 'lucide-react';
 import { getCurrentUser, clearAuthToken, getAuthToken, linkFilesToUser } from './lib/api';
 
 export function App() {
@@ -146,7 +146,7 @@ export function App() {
       <div className="relative min-h-screen w-full bg-smokedWhite text-darkText overflow-hidden flex items-center justify-center">
         <GridBackground />
         <div className="relative z-10 text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-neonPurple mx-auto mb-4"></div>
+          <Loader2 className="animate-spin text-neonPurple mx-auto mb-4" size={32} />
           <p className="text-gray-600">Loading...</p>
         </div>
       </div>

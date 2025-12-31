@@ -3,54 +3,72 @@ import { createUploadRequest } from '../lib/models.js';
 import { stripe, calculatePrice } from '../lib/stripe.js';
 import { FREE_MAX_BYTES, MAX_FILE_BYTES } from '../lib/constants.js';
 import { z } from 'zod';
-import { readJsonBody } from '../lib/utils.js';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 const requestSchema = z.object({
   sizeBytes: z.number().int().positive(),
 });
 
-export default async function handler(req: Request): Promise<Response> {
+function setCorsHeaders(res: VercelResponse) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+}
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  console.log('[CREATE-UPLOAD-SESSION] Request received:', { method: req.method });
+  
+  // Set CORS headers on all responses
+  setCorsHeaders(res);
+  
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Max-Age', '86400');
+    return res.status(204).end();
+  }
+  
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
+    console.log('[CREATE-UPLOAD-SESSION] Starting authentication...');
     // Require authentication
     const user = await requireAuth(req);
+    console.log('[CREATE-UPLOAD-SESSION] User authenticated:', user.email);
 
-    const body = await readJsonBody(req);
+    // Parse request body - Vercel automatically parses JSON bodies
+    const body = req.body as { sizeBytes?: number };
+    console.log('[CREATE-UPLOAD-SESSION] Body received, sizeBytes:', body?.sizeBytes);
+    
     const { sizeBytes } = requestSchema.parse(body);
+    console.log('[CREATE-UPLOAD-SESSION] Validated sizeBytes:', sizeBytes);
 
     // Validate file size
     if (sizeBytes <= FREE_MAX_BYTES) {
-      return new Response(
-        JSON.stringify({ 
-          error: 'File is within free tier. Use /api/upload/free endpoint.' 
-        }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return res.status(400).json({ 
+        error: 'File is within free tier. Use /api/upload/free endpoint.' 
+      });
     }
 
     if (sizeBytes > MAX_FILE_BYTES) {
-      return new Response(
-        JSON.stringify({ 
-          error: `File too large. Maximum size is ${MAX_FILE_BYTES / (1024 * 1024)}MB` 
-        }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return res.status(400).json({ 
+        error: `File too large. Maximum size is ${MAX_FILE_BYTES / (1024 * 1024)}MB` 
+      });
     }
 
     // Calculate price
+    console.log('[CREATE-UPLOAD-SESSION] Calculating price...');
     const amount = calculatePrice(sizeBytes);
+    console.log('[CREATE-UPLOAD-SESSION] Price calculated:', amount, 'cents');
 
     // Get base URL for redirects
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 
       (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:5173');
+    console.log('[CREATE-UPLOAD-SESSION] Base URL:', baseUrl);
 
     // Create Stripe Checkout Session
+    console.log('[CREATE-UPLOAD-SESSION] Creating Stripe checkout session...');
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [
@@ -67,55 +85,58 @@ export default async function handler(req: Request): Promise<Response> {
         },
       ],
       mode: 'payment',
-      success_url: `${baseUrl}/upload/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${baseUrl}/upload/cancel`,
+      success_url: `${baseUrl}/?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${baseUrl}/?payment_cancelled=true`,
       metadata: {
         userId: user.userId,
         sizeBytes: sizeBytes.toString(),
       },
     });
+    console.log('[CREATE-UPLOAD-SESSION] Stripe session created:', session.id);
 
     // Create upload request record
+    console.log('[CREATE-UPLOAD-SESSION] Creating upload request record...');
     await createUploadRequest({
       userId: user.userId,
       expectedSizeBytes: sizeBytes,
       stripeSessionId: session.id,
       status: 'pending',
     });
+    console.log('[CREATE-UPLOAD-SESSION] Upload request record created');
 
-    return new Response(
-      JSON.stringify({
-        success: true,
+    console.log('[CREATE-UPLOAD-SESSION] Returning success response');
+    const responseData = {
+      success: true,
+      data: {
         sessionId: session.id,
         url: session.url,
         amount: amount / 100, // Convert cents to dollars
-      }),
-      {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }
-    );
+      },
+    };
+    console.log('[CREATE-UPLOAD-SESSION] Response data:', JSON.stringify(responseData));
+    
+    return res.status(200).json(responseData);
   } catch (error) {
-    console.error('Create upload session error:', error);
+    console.error('[CREATE-UPLOAD-SESSION] Error:', error);
+    console.error('[CREATE-UPLOAD-SESSION] Error details:', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      name: error instanceof Error ? error.name : undefined,
+    });
 
-  if (error instanceof Error && error.message === 'Unauthorized') {
-    return new Response(
-      JSON.stringify({ error: 'Authentication required' }),
-      { status: 401, headers: { 'Content-Type': 'application/json' } }
-    );
-  }
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
 
-  if (error instanceof z.ZodError) {
-    return new Response(
-      JSON.stringify({ error: 'Invalid request data' }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } }
-    );
-  }
+    if (error instanceof z.ZodError) {
+      console.error('[CREATE-UPLOAD-SESSION] Validation error:', error.errors);
+      return res.status(400).json({ error: 'Invalid request data', details: error.errors });
+    }
 
-    return new Response(
-      JSON.stringify({ error: 'Failed to create payment session' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    const errorMessage = error instanceof Error ? error.message : 'Failed to create payment session';
+    return res.status(500).json({ 
+      error: errorMessage,
+      details: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : String(error)) : undefined
+    });
   }
 }
-

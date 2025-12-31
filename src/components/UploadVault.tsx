@@ -5,7 +5,7 @@ import { UploadProgress } from './UploadProgress';
 import { FilePreview } from './FilePreview';
 import { ShareOptions } from './ShareOptions';
 import { FileText, Lock, ShieldCheck, RefreshCw, AlertCircle } from 'lucide-react';
-import { uploadFree, uploadPaid, createUploadSession, getAuthToken } from '../lib/api';
+import { uploadFree, uploadPaid, createUploadSession, getAuthToken, verifyUploadSession } from '../lib/api';
 import { FREE_MAX_BYTES } from '../lib/constants';
 
 interface UploadResult {
@@ -56,21 +56,62 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
       try {
         setStatus('uploading');
         setProgress(10);
+        console.log('[UPLOAD-VAULT] Creating upload session for file size:', fileSize);
         const sessionResult = await createUploadSession(fileSize);
+        console.log('[UPLOAD-VAULT] Session result received:', sessionResult);
         
         if (sessionResult.error) {
+          console.error('[UPLOAD-VAULT] Session creation error:', sessionResult.error);
           setError(sessionResult.error);
           setStatus('error');
           return;
         }
 
         if (sessionResult.data?.url) {
+          console.log('[UPLOAD-VAULT] Storing file in sessionStorage before payment redirect');
+          // Store file info in sessionStorage so we can retrieve it after payment
+          try {
+            const fileData = {
+              name: file.name,
+              size: file.size,
+              type: file.type || 'application/octet-stream',
+              sessionId: sessionResult.data.sessionId,
+            };
+            sessionStorage.setItem('pending-upload', JSON.stringify(fileData));
+            
+            // Store file as base64 in sessionStorage (for files up to a reasonable size)
+            // For very large files, we might need a different approach
+            if (file.size <= 10 * 1024 * 1024) { // 10MB limit for sessionStorage
+              const arrayBuffer = await file.arrayBuffer();
+              const uint8Array = new Uint8Array(arrayBuffer);
+              let binary = '';
+              const chunkSize = 8192;
+              for (let i = 0; i < uint8Array.length; i += chunkSize) {
+                binary += String.fromCharCode.apply(null, Array.from(uint8Array.slice(i, i + chunkSize)));
+              }
+              const base64 = btoa(binary);
+              sessionStorage.setItem('pending-upload-file', base64);
+            } else {
+              console.warn('[UPLOAD-VAULT] File too large for sessionStorage, will need user to re-upload');
+            }
+          } catch (err) {
+            console.error('[UPLOAD-VAULT] Failed to store file in sessionStorage:', err);
+            // Continue anyway - user might need to re-upload
+          }
+          
+          console.log('[UPLOAD-VAULT] Redirecting to Stripe checkout:', sessionResult.data.url);
           // Redirect to Stripe checkout
           window.location.href = sessionResult.data.url;
           setStatus('payment-required');
           return;
+        } else {
+          console.error('[UPLOAD-VAULT] No URL in response data:', sessionResult);
+          setError('Failed to get checkout URL from server');
+          setStatus('error');
+          return;
         }
       } catch (err) {
+        console.error('[UPLOAD-VAULT] Exception creating payment session:', err);
         setError('Failed to create payment session');
         setStatus('error');
         return;
@@ -176,15 +217,126 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
 
   // Check if returning from Stripe payment
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const sessionId = urlParams.get('session_id');
-    
-    if (sessionId && selectedFile) {
-      uploadFile(selectedFile, sessionId);
-      // Clean up URL
+    const handlePaymentReturn = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const sessionId = urlParams.get('session_id');
+      
+      if (!sessionId) {
+        return;
+      }
+
+      console.log('[UPLOAD-VAULT] Detected payment return with session_id:', sessionId);
+      
+      // Clean up URL immediately
       window.history.replaceState({}, document.title, window.location.pathname);
-    }
-  }, [selectedFile]);
+      
+      try {
+        // Verify payment was completed
+        setStatus('uploading');
+        setProgress(20);
+        console.log('[UPLOAD-VAULT] Verifying payment session...');
+        const verifyResult = await verifyUploadSession(sessionId);
+        
+        if (verifyResult.error) {
+          console.error('[UPLOAD-VAULT] Payment verification failed:', verifyResult.error);
+          setError(verifyResult.error || 'Payment verification failed');
+          setStatus('error');
+          return;
+        }
+
+        // Check both status and paymentStatus from Stripe
+        const isPaid = verifyResult.data?.status === 'paid' || 
+                      verifyResult.data?.paymentStatus === 'paid';
+        
+        if (!isPaid) {
+          console.error('[UPLOAD-VAULT] Payment not completed, status:', verifyResult.data?.status, 'paymentStatus:', verifyResult.data?.paymentStatus);
+          
+          // If payment is still pending, wait a bit and retry (webhook might be processing)
+          if (verifyResult.data?.status === 'pending' || verifyResult.data?.stripeStatus === 'open') {
+            console.log('[UPLOAD-VAULT] Payment still processing, waiting 2 seconds and retrying...');
+            setProgress(30);
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // Retry verification
+            const retryResult = await verifyUploadSession(sessionId);
+            const retryIsPaid = retryResult.data?.status === 'paid' || 
+                               retryResult.data?.paymentStatus === 'paid';
+            
+            if (!retryIsPaid) {
+              setError('Payment is still processing. Please wait a moment and refresh the page.');
+              setStatus('error');
+              return;
+            }
+            
+            // Payment confirmed on retry, continue
+            console.log('[UPLOAD-VAULT] Payment confirmed on retry');
+          } else {
+            setError('Payment not completed. Please try again.');
+            setStatus('error');
+            return;
+          }
+        }
+
+        console.log('[UPLOAD-VAULT] Payment verified, retrieving file from sessionStorage...');
+        
+        // Try to get file from sessionStorage
+        const pendingUploadStr = sessionStorage.getItem('pending-upload');
+        const pendingFileBase64 = sessionStorage.getItem('pending-upload-file');
+        
+        if (!pendingUploadStr) {
+          console.error('[UPLOAD-VAULT] No pending upload found in sessionStorage');
+          setError('File not found. Please select your file again.');
+          setStatus('error');
+          return;
+        }
+
+        const pendingUpload = JSON.parse(pendingUploadStr);
+        
+        // Reconstruct file from base64
+        let file: File | null = null;
+        if (pendingFileBase64) {
+          try {
+            const binary = atob(pendingFileBase64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) {
+              bytes[i] = binary.charCodeAt(i);
+            }
+            const blob = new Blob([bytes], { type: pendingUpload.type });
+            file = new File([blob], pendingUpload.name, { type: pendingUpload.type });
+            console.log('[UPLOAD-VAULT] File reconstructed from sessionStorage');
+          } catch (err) {
+            console.error('[UPLOAD-VAULT] Failed to reconstruct file:', err);
+          }
+        }
+
+        if (!file) {
+          console.error('[UPLOAD-VAULT] Could not reconstruct file');
+          setError('File not found. Please select your file again.');
+          setStatus('error');
+          return;
+        }
+
+        // Set file info
+        setFileName(file.name);
+        setSelectedFile(file);
+        setFileMimeType(file.type || 'application/octet-stream');
+
+        // Upload the file
+        console.log('[UPLOAD-VAULT] Uploading file after payment...');
+        await uploadFile(file, sessionId);
+        
+        // Clean up sessionStorage
+        sessionStorage.removeItem('pending-upload');
+        sessionStorage.removeItem('pending-upload-file');
+      } catch (err: any) {
+        console.error('[UPLOAD-VAULT] Error handling payment return:', err);
+        setError(err?.message || 'Failed to process payment return');
+        setStatus('error');
+      }
+    };
+
+    handlePaymentReturn();
+  }, []); // Only run once on mount
 
   const resetUpload = () => {
     setStatus('idle');

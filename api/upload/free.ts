@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { IncomingMessage } from 'http';
 import { uploadToArweave } from '../lib/arweave.js';
 import { createFile } from '../lib/models.js';
 import { FREE_MAX_BYTES, MAX_FILE_BYTES } from '../lib/constants.js';
@@ -32,13 +33,49 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    // Parse JSON body - Vercel automatically parses JSON bodies
-    const body = req.body as {
+    // Handle body parsing - Vercel may not parse large bodies automatically
+    let body: {
       fileData?: string;
       fileName?: string;
       mimeType?: string;
     };
-    console.log('Request body received, has fileData:', !!body?.fileData);
+
+    if (req.body && typeof req.body === 'object' && !Buffer.isBuffer(req.body)) {
+      // Body was already parsed by Vercel
+      body = req.body as typeof body;
+      console.log('Using pre-parsed body, has fileData:', !!body?.fileData);
+    } else {
+      // Body was not parsed (likely too large), read it manually
+      console.log('Reading raw body stream...');
+      const bodyText = await new Promise<string>((resolve, reject) => {
+        const chunks: Buffer[] = [];
+        const incomingReq = req as IncomingMessage;
+        
+        // Check if body is already available as a buffer or string
+        if (req.body && (Buffer.isBuffer(req.body) || typeof req.body === 'string')) {
+          resolve(Buffer.isBuffer(req.body) ? req.body.toString('utf-8') : req.body);
+          return;
+        }
+
+        incomingReq.on('data', (chunk: Buffer) => chunks.push(chunk));
+        incomingReq.on('end', () => {
+          try {
+            resolve(Buffer.concat(chunks).toString('utf-8'));
+          } catch (error) {
+            reject(error);
+          }
+        });
+        incomingReq.on('error', reject);
+      });
+
+      try {
+        body = JSON.parse(bodyText);
+        console.log('Parsed body from stream, has fileData:', !!body?.fileData);
+      } catch (error) {
+        console.error('Failed to parse JSON body:', error);
+        return res.status(400).json({ error: 'Invalid JSON in request body' });
+      }
+    }
     
     if (!body?.fileData || !body?.fileName) {
       return res.status(400).json({ error: 'Missing fileData or fileName in request body' });
