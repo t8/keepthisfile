@@ -112,16 +112,52 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 <html>
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Verification Failed</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
-    body { font-family: system-ui; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #f3f4f6; }
-    .container { background: white; padding: 2rem; border-radius: 8px; max-width: 500px; text-align: center; }
-    h1 { color: #dc2626; margin-top: 0; }
-    p { color: #666; }
+    body { 
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      min-height: 100vh; 
+      margin: 0; 
+      background: #F8F6F3;
+      padding: 20px;
+    }
+    .container { 
+      background: #FFFFFF; 
+      padding: 40px 32px; 
+      border-radius: 16px; 
+      max-width: 500px; 
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.1);
+    }
+    h1 { 
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      font-weight: 600;
+      font-size: 24px;
+      color: #DC2626; 
+      margin: 0 0 16px 0; 
+    }
+    p { 
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      font-size: 16px;
+      color: #1A1A1A; 
+      margin: 0 0 12px 0;
+      line-height: 1.6;
+    }
+    .error-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
   </style>
 </head>
 <body>
   <div class="container">
+    <div class="error-icon">✕</div>
     <h1>Verification Failed</h1>
     <p>${errorMsg}</p>
     <p>Please try requesting a new magic link.</p>
@@ -146,11 +182,73 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       '<html>\n' +
       '<head>\n' +
       '  <meta charset="UTF-8">\n' +
+      '  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
       '  <title>Sign In Successful</title>\n' +
+      '  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">\n' +
       '  <style>\n' +
-      '    body { font-family: system-ui; text-align: center; padding: 2rem; background: #f3f4f6; }\n' +
-      '    .container { background: white; padding: 2rem; border-radius: 8px; max-width: 500px; margin: 0 auto; }\n' +
-      '    h1 { color: #10b981; }\n' +
+      '    body { \n' +
+      '      font-family: \'Inter\', -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, \'Helvetica Neue\', Arial, sans-serif; \n' +
+      '      text-align: center; \n' +
+      '      padding: 20px; \n' +
+      '      background: #F8F6F3;\n' +
+      '      margin: 0;\n' +
+      '      display: flex;\n' +
+      '      align-items: center;\n' +
+      '      justify-content: center;\n' +
+      '      min-height: 100vh;\n' +
+      '    }\n' +
+      '    .container { \n' +
+      '      background: #FFFFFF; \n' +
+      '      padding: 40px 32px; \n' +
+      '      border-radius: 16px; \n' +
+      '      max-width: 500px; \n' +
+      '      width: 100%;\n' +
+      '      margin: 0 auto;\n' +
+      '      box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.1);\n' +
+      '    }\n' +
+      '    h1 { \n' +
+      '      font-family: \'Inter\', -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, \'Helvetica Neue\', Arial, sans-serif;\n' +
+      '      font-weight: 600;\n' +
+      '      font-size: 24px;\n' +
+      '      color: #A855F7;\n' +
+      '      margin: 0 0 16px 0;\n' +
+      '    }\n' +
+      '    p { \n' +
+      '      font-family: \'Inter\', -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, \'Helvetica Neue\', Arial, sans-serif;\n' +
+      '      font-size: 16px;\n' +
+      '      color: #1A1A1A;\n' +
+      '      margin: 0 0 12px 0;\n' +
+      '      line-height: 1.6;\n' +
+      '    }\n' +
+      '    strong {\n' +
+      '      font-weight: 600;\n' +
+      '      color: #A855F7;\n' +
+      '    }\n' +
+      '    .success-icon-wrapper {\n' +
+      '      display: inline-flex;\n' +
+      '      align-items: center;\n' +
+      '      justify-content: center;\n' +
+      '      padding: 16px;\n' +
+      '      background: rgba(168, 85, 247, 0.1);\n' +
+      '      border-radius: 12px;\n' +
+      '      margin-bottom: 24px;\n' +
+      '      animation: scaleIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);\n' +
+      '    }\n' +
+      '    .success-icon {\n' +
+      '      font-size: 48px;\n' +
+      '      color: #A855F7;\n' +
+      '      line-height: 1;\n' +
+      '    }\n' +
+      '    @keyframes scaleIn {\n' +
+      '      0% {\n' +
+      '        transform: scale(0);\n' +
+      '        opacity: 0;\n' +
+      '      }\n' +
+      '      100% {\n' +
+      '        transform: scale(1);\n' +
+      '        opacity: 1;\n' +
+      '      }\n' +
+      '    }\n' +
       '  </style>\n' +
       '  <script>\n' +
       '    (function() {\n' +
@@ -171,9 +269,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       '</head>\n' +
       '<body>\n' +
       '  <div class="container">\n' +
-      '    <h1>✓ Sign In Successful!</h1>\n' +
+      '    <div class="success-icon-wrapper">\n' +
+      '      <div class="success-icon">✓</div>\n' +
+      '    </div>\n' +
+      '    <h1>Sign In Successful!</h1>\n' +
       '    <p>You\'ve signed in as <strong>' + escapedEmail + '</strong></p>\n' +
-      '    <p><strong>You can close this window and return to the original browser tab.</strong></p>\n' +
+      '    <p>You can close this window and return to the original browser tab.</p>\n' +
       '  </div>\n' +
       '</body>\n' +
       '</html>';
