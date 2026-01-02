@@ -33,8 +33,8 @@
 5. **File Management**
    - `GET /api/files` - Get user's uploaded files
    - File size validation (backend enforced)
-   - Free tier: ≤100KB, no auth required
-   - Paid tier: >100KB, auth + payment required
+   - Free tier: ≤100KB (login required, no payment)
+   - Paid tier: >100KB (login + payment required)
 
 6. **User Management**
    - `GET /api/me` - Get current user info
@@ -142,8 +142,8 @@ arweavevault/
 - Backend validates tokens on protected routes
 
 ### File Size Rules
-- **Free**: ≤100KB, no authentication required
-- **Paid**: >100KB, requires authentication + Stripe payment
+- **Free**: ≤100KB (login required, no payment)
+- **Paid**: >100KB (login + payment required)
 - **Maximum**: 25MB (configurable via `MAX_FILE_BYTES`)
 - Backend enforces all limits
 

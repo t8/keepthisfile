@@ -111,17 +111,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // Check for optional authentication
+    // Authentication is required for all uploads
     let userId: string | null = null;
     try {
       const user = await getCurrentUser(req);
-      if (user) {
-        userId = user.userId;
-        console.log('User authenticated, associating file with userId:', userId);
+      if (!user) {
+        return res.status(401).json({ error: 'Authentication required. Please sign in to upload files.' });
       }
+      userId = user.userId;
+      console.log('User authenticated, associating file with userId:', userId);
     } catch (authError) {
-      // Auth is optional for free uploads, so we ignore errors
-      console.log('No authentication provided (optional for free uploads)');
+      console.log('Authentication required but not provided');
+      return res.status(401).json({ error: 'Authentication required. Please sign in to upload files.' });
     }
 
     // Upload to Arweave

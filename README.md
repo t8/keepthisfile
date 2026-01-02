@@ -4,7 +4,7 @@ A full-stack application for uploading files to Arweave permanently. Features ma
 
 ## Features
 
-- **Free Tier**: Upload files ≤100KB without signup
+- **Free Tier**: Upload files ≤100KB (login required)
 - **Paid Tier**: Upload larger files with Stripe payment integration
 - **Magic Link Authentication**: Passwordless email-based authentication
 - **Arweave Integration**: Uploads via Ar.IO Turbo bundling service (ANS-104 compliant)
@@ -141,9 +141,9 @@ This gives you the best of both worlds: free uploads for small files via Turbo, 
 - `GET /api/me` - Get current user
 
 ### Uploads
-- `POST /api/upload/free` - Upload file ≤100KB (no auth required)
+- `POST /api/upload/free` - Upload file ≤100KB (login required)
 - `POST /api/payments/create-upload-session` - Create Stripe checkout session
-- `POST /api/upload/paid` - Upload file after payment (auth required)
+- `POST /api/upload/paid` - Upload file after payment (login required)
 
 ### Files
 - `GET /api/files` - Get user's uploaded files (auth required)
@@ -170,8 +170,8 @@ Add all variables from `env.example` to your Vercel project settings.
 
 ## File Size Limits
 
-- **Free Tier**: ≤100KB (no authentication required)
-- **Paid Tier**: >100KB up to 25MB (authentication + payment required)
+- **Free Tier**: ≤100KB (login required, no payment)
+- **Paid Tier**: >100KB up to 25MB (login + payment required)
 - Configurable via `MAX_FILE_BYTES` environment variable
 
 ## Pricing

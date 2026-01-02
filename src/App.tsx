@@ -5,6 +5,8 @@ import { UploadVault } from './components/UploadVault';
 import { FileLibrary } from './components/FileLibrary';
 import { AuthModal } from './components/AuthModal';
 import { FAQ } from './components/FAQ';
+import { Footer } from './components/Footer';
+import { TermsOfService } from './components/TermsOfService';
 import { motion } from 'framer-motion';
 import { Database, LogOut, Upload, FolderOpen, Loader2 } from 'lucide-react';
 import { getCurrentUser, clearAuthToken, getAuthToken, linkFilesToUser } from './lib/api';
@@ -224,64 +226,68 @@ export function App() {
       </header>
 
       {/* Main Content */}
-      <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-8 sm:py-12 overflow-x-hidden">
-        <div className="w-full max-w-4xl mx-auto text-center mb-8 sm:mb-12">
-          <motion.div initial={{
-          opacity: 0,
-          y: 20
-        }} animate={{
-          opacity: 1,
-          y: 0
-        }} transition={{
-          duration: 0.6
-        }}>
-            <span className="inline-block px-2 sm:px-3 py-1 mb-4 text-[10px] sm:text-xs font-mono text-neonPurple bg-neonPurple/10 rounded-full border border-neonPurple/20">
-              PERMANENT_STORAGE_PROTOCOL
-            </span>
-            <h1 className="text-3xl sm:text-5xl md:text-7xl font-bold mb-4 sm:mb-6 font-display tracking-tight text-gray-900 px-2">
-              Store Data <span className="text-neonPurple">Forever</span>
-            </h1>
-            <p className="text-sm sm:text-lg text-gray-600 max-w-2xl mx-auto font-sans leading-relaxed px-2">
-              Upload your files to the permaweb. Secured by cryptography, stored
-              redundantly across the globe, and accessible for centuries.
-            </p>
-          </motion.div>
-        </div>
+      <main className={`relative z-10 flex-1 flex flex-col items-center ${location.pathname === '/terms' ? 'justify-start' : 'justify-center'} px-4 sm:px-6 py-8 sm:py-12 overflow-x-hidden`}>
+        {location.pathname !== '/terms' && (
+          <>
+            <div className="w-full max-w-4xl mx-auto text-center mb-8 sm:mb-12">
+              <motion.div initial={{
+              opacity: 0,
+              y: 20
+            }} animate={{
+              opacity: 1,
+              y: 0
+            }} transition={{
+              duration: 0.6
+            }}>
+                <span className="inline-block px-2 sm:px-3 py-1 mb-4 text-[10px] sm:text-xs font-mono text-neonPurple bg-neonPurple/10 rounded-full border border-neonPurple/20">
+                  PERMANENT_STORAGE_PROTOCOL
+                </span>
+                <h1 className="text-3xl sm:text-5xl md:text-7xl font-bold mb-4 sm:mb-6 font-display tracking-tight text-gray-900 px-2">
+                  Store Data <span className="text-neonPurple">Forever</span>
+                </h1>
+                <p className="text-sm sm:text-lg text-gray-600 max-w-2xl mx-auto font-sans leading-relaxed px-2">
+                  Upload your files to the permaweb. Secured by cryptography, stored
+                  redundantly across the globe, and accessible for centuries.
+                </p>
+              </motion.div>
+            </div>
 
-        {/* Stats Section */}
-        <motion.div initial={{
-        opacity: 0
-      }} animate={{
-        opacity: 1
-      }} transition={{
-        delay: 0.8,
-        duration: 0.8
-      }} className="mb-8 sm:mb-12 grid grid-cols-3 gap-2 sm:gap-4 md:gap-8 text-center px-2 w-full max-w-4xl">
-          <div>
-            <p className="text-lg sm:text-xl md:text-2xl font-bold font-display text-gray-900">
-              200+
-            </p>
-            <p className="text-[9px] sm:text-[10px] md:text-xs font-mono text-gray-500 uppercase mt-1">
-              Years Guaranteed
-            </p>
-          </div>
-          <div>
-            <p className="text-lg sm:text-xl md:text-2xl font-bold font-display text-gray-900">
-              100%
-            </p>
-            <p className="text-[9px] sm:text-[10px] md:text-xs font-mono text-gray-500 uppercase mt-1">
-              Uptime
-            </p>
-          </div>
-          <div>
-            <p className="text-lg sm:text-xl md:text-2xl font-bold font-display text-gray-900">
-              Global
-            </p>
-            <p className="text-[9px] sm:text-[10px] md:text-xs font-mono text-gray-500 uppercase mt-1">
-              Redundancy
-            </p>
-          </div>
-        </motion.div>
+            {/* Stats Section */}
+            <motion.div initial={{
+            opacity: 0
+          }} animate={{
+            opacity: 1
+          }} transition={{
+            delay: 0.8,
+            duration: 0.8
+          }} className="mb-8 sm:mb-12 grid grid-cols-3 gap-2 sm:gap-4 md:gap-8 text-center px-2 w-full max-w-4xl">
+              <div>
+                <p className="text-lg sm:text-xl md:text-2xl font-bold font-display text-gray-900">
+                  200+
+                </p>
+                <p className="text-[9px] sm:text-[10px] md:text-xs font-mono text-gray-500 uppercase mt-1">
+                  Years Guaranteed
+                </p>
+              </div>
+              <div>
+                <p className="text-lg sm:text-xl md:text-2xl font-bold font-display text-gray-900">
+                  100%
+                </p>
+                <p className="text-[9px] sm:text-[10px] md:text-xs font-mono text-gray-500 uppercase mt-1">
+                  Uptime
+                </p>
+              </div>
+              <div>
+                <p className="text-lg sm:text-xl md:text-2xl font-bold font-display text-gray-900">
+                  Global
+                </p>
+                <p className="text-[9px] sm:text-[10px] md:text-xs font-mono text-gray-500 uppercase mt-1">
+                  Redundancy
+                </p>
+              </div>
+            </motion.div>
+          </>
+        )}
 
         <Routes>
           <Route
@@ -315,11 +321,17 @@ export function App() {
               )
             }
           />
+          <Route
+            path="/terms"
+            element={<TermsOfService />}
+          />
         </Routes>
 
         {/* FAQ Section - Only show on homepage */}
         {location.pathname === '/' && <FAQ />}
       </main>
+
+      <Footer />
 
       <AuthModal 
         isOpen={isAuthModalOpen} 

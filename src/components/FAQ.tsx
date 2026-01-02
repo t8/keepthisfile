@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown } from 'lucide-react';
 
@@ -13,16 +13,16 @@ const faqData: FAQItem[] = [
     answer: "Your file is stored permanently, not for a month or a year, but indefinitely. It's saved on a global network designed so that even if some computers disappear, your file still lives on. Think of it like putting something in hundreds of digital vaults at once."
   },
   {
-    question: "Do I need to know anything about crypto or blockchains?",
-    answer: "Nope! You don't need crypto, wallets, tokens, or any technical knowledge. Just upload a file, pay once (if needed), and you're done. We handle the blockchain part in the background so it works like normal cloud storage."
+    question: "Is my data private?",
+    answer: "All data uploaded to our platform is publicly available. Once a file is uploaded, it can be accessed by anyone who has the link. If you're interested in private data uploads, please reach out to us and we'd be happy to discuss options for your use case."
   },
   {
     question: "Why does it cost money to upload larger files?",
-    answer: "Files smaller than 100KB are free to upload. For larger files, we charge a one-time fee proportional to the file size. Storing data permanently has a real cost because it's saved in many locations around the world for decades. After that one-time payment, you never pay again. No subscriptions, no rent, no renewal fees."
+    answer: "Files smaller than 100KB are free to upload (login required). For larger files, we charge a one-time fee proportional to the file size. Storing data permanently has a real cost because it's saved in many locations around the world for decades. After that one-time payment, you never pay again. No subscriptions, no rent, no renewal fees."
   },
   {
     question: "Can I delete a file after I upload it?",
-    answer: "This kind of storage is designed to be forever, so files can't be deleted once published. If you're unsure, try uploading a very small file first. We also support free uploads up to 100KB so you can experiment safely."
+    answer: "This kind of storage is designed to be forever, so files can't be deleted once published. If you're unsure, try uploading a very small file first. We also support free uploads up to 100KB (login required) so you can experiment safely."
   },
   {
     question: "What happens if your company disappears? Will I lose my files?",

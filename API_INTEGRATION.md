@@ -40,11 +40,12 @@ The API client is located in `src/lib/api.ts` and provides:
 
 ### Free Upload (≤100KB)
 1. User selects file
-2. `UploadVault.handleFileSelect()` checks file size
-3. If ≤100KB → Calls `uploadFree(file)`
-4. Backend uploads to Arweave
-5. Returns `{ txId, arweaveUrl }`
-6. Frontend displays success with Arweave URL
+2. Checks authentication → If not authenticated, prompts to sign in
+3. `UploadVault.handleFileSelect()` checks file size
+4. If ≤100KB → Calls `uploadFree(file)` (login required)
+5. Backend uploads to Arweave
+6. Returns `{ txId, arweaveUrl }`
+7. Frontend displays success with Arweave URL
 
 ### Paid Upload (>100KB)
 1. User selects file
@@ -105,8 +106,9 @@ Frontend components should check for `error` field and display appropriate messa
 ## Testing API Integration
 
 1. **Free Upload Test**:
+   - Sign in first (login required for all uploads)
    - Select file <100KB
-   - Should upload without authentication
+   - Should upload without payment
    - Should show Arweave URL on success
 
 2. **Paid Upload Test**:
