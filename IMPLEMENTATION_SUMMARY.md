@@ -148,7 +148,7 @@ arweavevault/
 - Backend enforces all limits
 
 ### Pricing
-- Default: $0.10 per MB
+- Default: $0.05 per MB
 - Minimum: $1.00
 - Formula: `max(MIN_PRICE_USD, PRICE_PER_MB_USD * sizeMB)`
 - Configurable via environment variables

@@ -177,7 +177,7 @@ Add all variables from `env.example` to your Vercel project settings.
 ## Pricing
 
 Default pricing (configurable via environment variables):
-- `STRIPE_PRICE_PER_MB_USD`: $0.10 per MB
+- `STRIPE_PRICE_PER_MB_USD`: $0.05 per MB
 - `STRIPE_MIN_PRICE_USD`: $1.00 minimum
 
 Price formula: `max(MIN_PRICE_USD, PRICE_PER_MB_USD * sizeMB)`
