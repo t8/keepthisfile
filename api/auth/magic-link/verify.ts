@@ -1,26 +1,48 @@
 import { loginOrCreateUser } from '../../lib/auth.js';
+import { getBaseUrlFromRequest } from '../../lib/email.js';
 import jwt from 'jsonwebtoken';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
-// Helper to get frontend URL
-function getFrontendUrl(): string {
-  // In local development, always use localhost:5173 for frontend
+// Helper to get frontend URL from request or environment
+function getFrontendUrl(req?: VercelRequest): string {
+  // If we have request headers, use them to determine the actual domain
+  if (req?.headers) {
+    const baseUrl = getBaseUrlFromRequest(req.headers);
+    // For frontend URL, we want to remove /api if present and ensure it's the frontend
+    // In production, the base URL should already be the frontend domain
+    if (baseUrl.includes('localhost')) {
+      return 'http://localhost:5173';
+    }
+    return baseUrl;
+  }
+  
+  // Fallback logic for when request is not available
   const isLocalDev = process.env.NODE_ENV === 'development' || 
                      (process.env.VERCEL_URL && process.env.VERCEL_URL.includes('localhost')) ||
-                     (process.env.NEXT_PUBLIC_BASE_URL && process.env.NEXT_PUBLIC_BASE_URL.includes('localhost:3000'));
+                     (process.env.NEXT_PUBLIC_BASE_URL && (
+                       process.env.NEXT_PUBLIC_BASE_URL.includes('localhost:5173') ||
+                       process.env.NEXT_PUBLIC_BASE_URL.includes('localhost:3000')
+                     ));
   
   if (isLocalDev) {
     return 'http://localhost:5173';
   }
   
+  // Prioritize NEXT_PUBLIC_BASE_URL (production domain) over VERCEL_URL (deployment URL)
   if (process.env.NEXT_PUBLIC_BASE_URL) {
     return process.env.NEXT_PUBLIC_BASE_URL;
   }
   
   if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}`;
+    const vercelUrl = process.env.VERCEL_URL;
+    // Check if it's localhost
+    if (vercelUrl.includes('localhost')) {
+      return vercelUrl.startsWith('http') ? vercelUrl : `http://${vercelUrl}`;
+    } else {
+      return vercelUrl.startsWith('http') ? vercelUrl : `https://${vercelUrl}`;
+    }
   }
   
   return 'http://localhost:5173';
@@ -48,7 +70,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.log('[VERIFY] Token extracted:', token ? `present (length: ${token.length})` : 'missing');
     
     if (!token) {
-      const frontendUrl = getFrontendUrl();
+      const frontendUrl = getFrontendUrl(req);
       return res.redirect(`${frontendUrl}?auth_error=Invalid verification link`);
     }
 
@@ -71,13 +93,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } catch (error) {
       console.error('[VERIFY] Token verification failed:', error);
       console.error('[VERIFY] Token value:', token);
-      const frontendUrl = getFrontendUrl();
+      const frontendUrl = getFrontendUrl(req);
       return res.redirect(`${frontendUrl}?auth_error=Link expired or invalid`);
     }
 
     if (!decoded.email || decoded.type !== 'magic-link') {
       console.log('[VERIFY] Invalid token type or missing email');
-      const frontendUrl = getFrontendUrl();
+      const frontendUrl = getFrontendUrl(req);
       return res.redirect(`${frontendUrl}?auth_error=Invalid token`);
     }
 
@@ -292,7 +314,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (error) {
     const errorElapsed = Date.now() - startTime;
     console.error(`[VERIFY] Error after ${errorElapsed}ms:`, error);
-    const frontendUrl = getFrontendUrl();
+    const frontendUrl = getFrontendUrl(req);
     return res.redirect(`${frontendUrl}?auth_error=Verification failed`);
   }
 }

@@ -1,4 +1,4 @@
-import { sendMagicLink } from '../../lib/email.js';
+import { sendMagicLink, getBaseUrlFromRequest } from '../../lib/email.js';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
@@ -59,9 +59,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     
     console.log('[REQUEST] Token generated, sending email...');
     
+    // Determine base URL from request headers (will use custom domain if available)
+    const baseUrl = getBaseUrlFromRequest(req.headers);
+    console.log('[REQUEST] Determined base URL:', baseUrl);
+    
     // Send email with timeout - await it so the function doesn't terminate
     // Use Promise.race to timeout after 8 seconds (email should send faster)
-    const emailPromise = sendMagicLink(email, tempToken);
+    const emailPromise = sendMagicLink(email, tempToken, baseUrl);
     const timeoutPromise = new Promise<void>((resolve) => {
       setTimeout(() => {
         console.log('[REQUEST] Email sending timeout - continuing anyway');

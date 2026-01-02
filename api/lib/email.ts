@@ -13,36 +13,74 @@ const transporter = nodemailer.createTransport({
   greetingTimeout: 5000, // 5 seconds for SMTP greeting
 });
 
-export async function sendMagicLink(email: string, token: string): Promise<void> {
-  // In production, API routes are on the same domain as the frontend
-  // Use VERCEL_URL if available (includes protocol), otherwise use NEXT_PUBLIC_BASE_URL
-  let baseUrl: string;
+// Helper function to get base URL from request headers or environment
+export function getBaseUrlFromRequest(headers: { host?: string | string[]; 'x-forwarded-proto'?: string | string[] }): string {
+  // If we have request headers, use them to determine the actual domain
+  if (headers.host) {
+    const host = Array.isArray(headers.host) ? headers.host[0] : headers.host;
+    const protocol = Array.isArray(headers['x-forwarded-proto']) 
+      ? headers['x-forwarded-proto'][0] 
+      : (headers['x-forwarded-proto'] || 'https');
+    
+    // Check if it's localhost
+    if (host.includes('localhost')) {
+      return `http://${host}`;
+    }
+    
+    // Use the actual host from the request (will be custom domain if configured)
+    return `${protocol}://${host}`;
+  }
+  
+  // Fallback to environment variables
+  if (process.env.NEXT_PUBLIC_BASE_URL) {
+    return process.env.NEXT_PUBLIC_BASE_URL;
+  }
   
   if (process.env.VERCEL_URL) {
     const vercelUrl = process.env.VERCEL_URL;
+    if (vercelUrl.includes('localhost')) {
+      return vercelUrl.startsWith('http') ? vercelUrl : `http://${vercelUrl}`;
+    } else {
+      return vercelUrl.startsWith('http') ? vercelUrl : `https://${vercelUrl}`;
+    }
+  }
+  
+  return 'http://localhost:5173';
+}
+
+export async function sendMagicLink(email: string, token: string, baseUrl?: string): Promise<void> {
+  // Use provided baseUrl, or determine from environment variables
+  let finalBaseUrl: string;
+  
+  if (baseUrl) {
+    finalBaseUrl = baseUrl;
+  } else if (process.env.NEXT_PUBLIC_BASE_URL) {
+    // Use the configured base URL (should be set to production domain in production)
+    finalBaseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+  } else if (process.env.VERCEL_URL) {
+    const vercelUrl = process.env.VERCEL_URL;
     // Check if it's localhost (local dev) - should use http, not https
     if (vercelUrl.includes('localhost')) {
-      baseUrl = vercelUrl.startsWith('http') ? vercelUrl : `http://${vercelUrl}`;
+      finalBaseUrl = vercelUrl.startsWith('http') ? vercelUrl : `http://${vercelUrl}`;
     } else {
       // Production Vercel URL - use https
-      baseUrl = vercelUrl.startsWith('http') ? vercelUrl : `https://${vercelUrl}`;
+      finalBaseUrl = vercelUrl.startsWith('http') ? vercelUrl : `https://${vercelUrl}`;
     }
-  } else if (process.env.NEXT_PUBLIC_BASE_URL) {
-    baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
   } else {
     // Local development fallback
-    baseUrl = 'http://localhost:5173';
+    finalBaseUrl = 'http://localhost:5173';
   }
   
   // Ensure no double slashes in URL
-  const cleanBaseUrl = baseUrl.replace(/\/$/, '');
+  const cleanBaseUrl = finalBaseUrl.replace(/\/$/, '');
   const magicLink = `${cleanBaseUrl}/api/auth/magic-link/verify?token=${token}`;
   
   console.log('Magic link email details:', {
     to: email,
-    baseUrl,
+    baseUrl: finalBaseUrl,
     cleanBaseUrl,
     magicLink,
+    providedBaseUrl: baseUrl,
     VERCEL_URL: process.env.VERCEL_URL,
     NEXT_PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL,
     NODE_ENV: process.env.NODE_ENV,
