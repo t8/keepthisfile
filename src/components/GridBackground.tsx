@@ -8,19 +8,6 @@ export function GridBackground() {
       WebkitMaskImage: 'linear-gradient(to bottom, transparent 5%, black 40%, black 60%, transparent 95%)'
     }} />
 
-      {/* Moving Horizon Line */}
-      <motion.div className="absolute w-full h-[2px] bg-neonPurple shadow-neon-purple blur-[1px]" initial={{
-      top: '10%',
-      opacity: 0
-    }} animate={{
-      top: ['10%', '90%'],
-      opacity: [0, 1, 0]
-    }} transition={{
-      duration: 8,
-      repeat: Infinity,
-      ease: 'linear'
-    }} />
-
       {/* Floating Geometric Shapes */}
       <motion.div className="absolute top-1/4 left-1/4 w-64 h-64 border border-neonPurple/20 rounded-full" animate={{
       scale: [1, 1.2, 1],
