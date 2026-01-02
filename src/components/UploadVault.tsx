@@ -38,6 +38,13 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
   const isAuthenticated = !!getAuthToken();
 
   const handleFileSelect = async (file: File) => {
+    // Require authentication before allowing any file selection
+    if (!isAuthenticated) {
+      if (onLoginRequest) {
+        onLoginRequest();
+      }
+      return;
+    }
     setFileName(file.name);
     setSelectedFile(file);
     setFileMimeType(file.type || 'application/octet-stream');
@@ -552,7 +559,11 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
           }} transition={{
             duration: 0.3
           }}>
-                <UploadZone onFileSelect={handleFileSelect} />
+                <UploadZone 
+                  onFileSelect={handleFileSelect} 
+                  requiresAuth={!isAuthenticated}
+                  onLoginRequest={onLoginRequest}
+                />
               </motion.div>}
 
             {(status === 'uploading' || status === 'complete') && <motion.div key="process" initial={{

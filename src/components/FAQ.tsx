@@ -18,7 +18,7 @@ const faqData: FAQItem[] = [
   },
   {
     question: "Why does it cost money to upload larger files?",
-    answer: "Storing data permanently has a real cost because it's saved in many locations around the world for decades. We charge a one-time fee based on file size. After that, you never pay again — no subscriptions, no rent, no renewal fees."
+    answer: "Files smaller than 100KB are free to upload. For larger files, we charge a one-time fee proportional to the file size. Storing data permanently has a real cost because it's saved in many locations around the world for decades. After that one-time payment, you never pay again. No subscriptions, no rent, no renewal fees."
   },
   {
     question: "Can I delete a file after I upload it?",
