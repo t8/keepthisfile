@@ -130,7 +130,12 @@ export function FileLibrary() {
             <div className="flex items-start gap-3 sm:gap-4">
               {/* Image Preview or File Icon */}
               {isImage(file.mimeType) ? (
-                <div className="flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
+                <a
+                  href={file.arweaveUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden border border-gray-200 bg-gray-50 hover:border-neonPurple/50 transition-colors cursor-pointer"
+                >
                   <img
                     src={file.arweaveUrl}
                     alt={file.originalFileName}
@@ -145,11 +150,16 @@ export function FileLibrary() {
                       }
                     }}
                   />
-                </div>
+                </a>
               ) : (
-                <div className="p-2 sm:p-3 bg-neonPurple/10 rounded-lg text-neonPurple flex-shrink-0">
+                <a
+                  href={file.arweaveUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 sm:p-3 bg-neonPurple/10 rounded-lg text-neonPurple flex-shrink-0 hover:bg-neonPurple/20 transition-colors cursor-pointer"
+                >
                   <FileText size={20} className="sm:w-6 sm:h-6" />
-                </div>
+                </a>
               )}
               
               <div className="flex-1 min-w-0 overflow-hidden">
