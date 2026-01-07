@@ -85,6 +85,35 @@ export async function getFilesByUserId(userId: string): Promise<File[]> {
   }));
 }
 
+export async function getFilesByUserIdPaginated(
+  userId: string,
+  limit: number = 20,
+  offset: number = 0
+): Promise<{ files: File[]; total: number }> {
+  const client = await clientPromise;
+  const db = client.db();
+  
+  // Get total count
+  const total = await db.collection<File>('files').countDocuments({ userId });
+  
+  // Get paginated files
+  const files = await db.collection<File>('files')
+    .find({ userId })
+    .sort({ createdAt: -1 })
+    .skip(offset)
+    .limit(limit)
+    .toArray();
+  
+  // Convert all _id fields to strings for consistency
+  return {
+    files: files.map(file => ({
+      ...file,
+      _id: file._id?.toString() || file._id,
+    })),
+    total,
+  };
+}
+
 export async function getFileById(fileId: string): Promise<File | null> {
   const client = await clientPromise;
   const db = client.db();

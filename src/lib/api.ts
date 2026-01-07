@@ -267,7 +267,7 @@ export async function uploadPaid(file: File, sessionId: string): Promise<ApiResp
 }
 
 // Files API
-export async function getUserFiles(): Promise<ApiResponse<{
+export async function getUserFiles(limit?: number, offset?: number): Promise<ApiResponse<{
   files: Array<{
     id: string;
     arweaveTxId: string;
@@ -277,9 +277,20 @@ export async function getUserFiles(): Promise<ApiResponse<{
     originalFileName: string;
     createdAt: string;
   }>;
+  pagination?: {
+    total: number;
+    limit: number;
+    offset: number;
+    hasMore: boolean;
+  };
 }>> {
   const token = localStorage.getItem('auth-token');
-  const response = await fetch(`${API_BASE}/files`, {
+  const params = new URLSearchParams();
+  if (limit !== undefined) params.append('limit', limit.toString());
+  if (offset !== undefined) params.append('offset', offset.toString());
+  
+  const url = `${API_BASE}/files${params.toString() ? `?${params.toString()}` : ''}`;
+  const response = await fetch(url, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -294,11 +305,14 @@ export async function getUserFiles(): Promise<ApiResponse<{
   
   const result = await response.json();
   
-  // Normalize response format - API returns { success, files } but we expect { data: { files } }
+  // Normalize response format - API returns { success, files, pagination } but we expect { data: { files, pagination } }
   if (result.files) {
     return {
       success: result.success,
-      data: { files: result.files },
+      data: { 
+        files: result.files,
+        pagination: result.pagination,
+      },
     };
   }
   

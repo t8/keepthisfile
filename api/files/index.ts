@@ -1,4 +1,4 @@
-import { getFilesByUserId } from '../lib/models.js';
+import { getFilesByUserIdPaginated } from '../lib/models.js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getCurrentUser } from '../lib/auth.js';
 
@@ -28,10 +28,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     console.log('[FILES] User authenticated:', user.email, 'userId:', user.userId);
 
-    // Get user's files
-    console.log('[FILES] Fetching files for userId:', user.userId);
-    const files = await getFilesByUserId(user.userId);
-    console.log('[FILES] Found files:', files.length);
+    // Parse pagination parameters
+    const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 20;
+    const offset = req.query.offset ? parseInt(req.query.offset as string, 10) : 0;
+    
+    // Validate pagination parameters
+    const validLimit = Math.min(Math.max(1, limit), 100); // Between 1 and 100
+    const validOffset = Math.max(0, offset);
+
+    // Get user's files with pagination
+    console.log('[FILES] Fetching files for userId:', user.userId, 'limit:', validLimit, 'offset:', validOffset);
+    const { files, total } = await getFilesByUserIdPaginated(user.userId, validLimit, validOffset);
+    console.log('[FILES] Found files:', files.length, 'total:', total);
 
     const responseData = {
       success: true,
@@ -44,6 +52,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         originalFileName: file.originalFileName,
         createdAt: file.createdAt,
       })),
+      pagination: {
+        total,
+        limit: validLimit,
+        offset: validOffset,
+        hasMore: offset + files.length < total,
+      },
     };
 
     console.log('[FILES] Returning response with', responseData.files.length, 'files');

@@ -226,8 +226,8 @@ export function App() {
       </header>
 
       {/* Main Content */}
-      <main className={`relative z-10 flex-1 flex flex-col items-center ${location.pathname === '/terms' ? 'justify-start' : 'justify-center'} px-4 sm:px-6 py-8 sm:py-12 overflow-x-hidden`}>
-        {location.pathname !== '/terms' && (
+      <main className={`relative z-10 flex-1 flex flex-col items-center ${location.pathname === '/terms' || location.pathname === '/files' ? 'justify-start' : 'justify-center'} px-4 sm:px-6 py-8 sm:py-12 overflow-x-hidden`}>
+        {location.pathname !== '/terms' && location.pathname !== '/files' && (
           <>
             <div className="w-full max-w-4xl mx-auto text-center mb-8 sm:mb-12">
               <motion.div initial={{
@@ -305,7 +305,7 @@ export function App() {
             path="/files"
             element={
               isAuthenticated ? (
-                <div className="w-full max-w-4xl mx-auto px-4 sm:px-6">
+                <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-6">
                   <FileLibrary />
                 </div>
               ) : (

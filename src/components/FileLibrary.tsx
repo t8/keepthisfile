@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { FileText, ExternalLink, Copy, Check, Loader2, FolderOpen, Image as ImageIcon } from 'lucide-react';
-import { getUserFiles, getAuthToken } from '../lib/api';
-import { ShareOptions } from './ShareOptions';
+import { Loader2, FolderOpen } from 'lucide-react';
+import { getUserFiles } from '../lib/api';
+import { FileCard } from './FileCard';
 import { useError } from '../contexts/ErrorContext';
 
 interface File {
@@ -15,31 +15,43 @@ interface File {
   createdAt: string;
 }
 
+const FILES_PER_PAGE = 20;
+
 export function FileLibrary() {
   const { showError } = useError();
   const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string>('');
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-  const isAuthenticated = !!getAuthToken();
-  
-  const isImage = (mimeType: string) => mimeType.startsWith('image/');
+  const [hasMore, setHasMore] = useState(true);
+  const [total, setTotal] = useState(0);
+  const observerTarget = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    loadFiles();
-  }, []);
-
-  const loadFiles = async () => {
+  const loadFiles = useCallback(async (offset: number = 0, append: boolean = false) => {
     try {
-      setLoading(true);
-      const result = await getUserFiles();
+      if (append) {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+      }
+
+      const result = await getUserFiles(FILES_PER_PAGE, offset);
       
       if (result.error) {
         const errorMsg = result.error;
         setError(errorMsg);
         showError(errorMsg);
       } else if (result.data?.files) {
-        setFiles(result.data.files);
+        if (append) {
+          setFiles(prev => [...prev, ...result.data!.files]);
+        } else {
+          setFiles(result.data.files);
+        }
+        
+        if (result.data.pagination) {
+          setHasMore(result.data.pagination.hasMore);
+          setTotal(result.data.pagination.total);
+        }
       }
     } catch (err: any) {
       const errorMsg = err?.message || 'Failed to load files';
@@ -47,35 +59,36 @@ export function FileLibrary() {
       showError(errorMsg);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
-  };
+  }, [showError]);
 
-  const copyToClipboard = async (text: string, id: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedId(id);
-      setTimeout(() => setCopiedId(null), 2000);
-    } catch (err: any) {
-      console.error('Failed to copy:', err);
-      showError('Failed to copy to clipboard. Please try again.');
+  useEffect(() => {
+    loadFiles(0, false);
+  }, [loadFiles]);
+
+  // Infinite scroll observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
+          loadFiles(files.length, true);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    const currentTarget = observerTarget.current;
+    if (currentTarget) {
+      observer.observe(currentTarget);
     }
-  };
 
-  const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-  };
-
-  const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
+    return () => {
+      if (currentTarget) {
+        observer.unobserve(currentTarget);
+      }
+    };
+  }, [files.length, hasMore, loadingMore, loading, loadFiles]);
 
   if (loading) {
     return (
@@ -108,122 +121,32 @@ export function FileLibrary() {
   }
 
   return (
-    <div className="space-y-4 w-full">
-      <div className="flex items-center justify-between mb-4 sm:mb-6 flex-wrap gap-2">
-        <h2 className="text-xl sm:text-2xl font-bold text-gray-900 font-display">Your Files</h2>
-        <button
-          onClick={loadFiles}
-          className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-        >
-          Refresh
-        </button>
+    <div className="w-full">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900 font-display">Your Files</h2>
+          {total > 0 && (
+            <p className="text-sm text-gray-500 mt-1">{total} {total === 1 ? 'file' : 'files'}</p>
+          )}
+        </div>
       </div>
 
-      <div className="grid gap-3 sm:gap-4">
+      {/* File Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
         {files.map((file) => (
-          <motion.div
-            key={file.id}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-xl border border-gray-200 p-3 sm:p-4 hover:shadow-md transition-shadow w-full overflow-hidden"
-          >
-            <div className="flex items-start gap-3 sm:gap-4">
-              {/* Image Preview or File Icon */}
-              {isImage(file.mimeType) ? (
-                <a
-                  href={file.arweaveUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden border border-gray-200 bg-gray-50 hover:border-neonPurple/50 transition-colors cursor-pointer"
-                >
-                  <img
-                    src={file.arweaveUrl}
-                    alt={file.originalFileName}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      // Fallback to icon if image fails to load
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
-                      const parent = target.parentElement;
-                      if (parent) {
-                        parent.innerHTML = `<div class="w-full h-full flex items-center justify-center bg-gray-100"><svg class="text-neonPurple" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>`;
-                      }
-                    }}
-                  />
-                </a>
-              ) : (
-                <a
-                  href={file.arweaveUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="p-2 sm:p-3 bg-neonPurple/10 rounded-lg text-neonPurple flex-shrink-0 hover:bg-neonPurple/20 transition-colors cursor-pointer"
-                >
-                  <FileText size={20} className="sm:w-6 sm:h-6" />
-                </a>
-              )}
-              
-              <div className="flex-1 min-w-0 overflow-hidden">
-                <h3 className="font-semibold text-sm sm:text-base text-gray-900 truncate mb-1">
-                  {file.originalFileName}
-                </h3>
-                <div className="flex flex-wrap gap-2 sm:gap-4 text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3">
-                  <span>{formatFileSize(file.sizeBytes)}</span>
-                  <span className="hidden sm:inline">•</span>
-                  <span className="break-words">{formatDate(file.createdAt)}</span>
-                  <span className="hidden sm:inline">•</span>
-                  <span className="font-mono text-[10px] sm:text-xs break-all">{file.mimeType}</span>
-                </div>
-                
-                <div className="flex items-center gap-2 flex-wrap mb-2 sm:mb-3">
-                  <a
-                    href={file.arweaveUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium text-neonPurple bg-neonPurple/10 rounded-lg hover:bg-neonPurple/20 transition-colors"
-                  >
-                    <ExternalLink size={12} className="sm:w-3.5 sm:h-3.5" />
-                    <span className="whitespace-nowrap">View on Arweave</span>
-                  </a>
-                  
-                  <button
-                    onClick={() => copyToClipboard(file.arweaveUrl, file.id)}
-                    className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                  >
-                    {copiedId === file.id ? (
-                      <>
-                        <Check size={12} className="sm:w-3.5 sm:h-3.5" />
-                        <span>Copied!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy size={12} className="sm:w-3.5 sm:h-3.5" />
-                        <span className="hidden sm:inline">Copy URL</span>
-                        <span className="sm:hidden">Copy</span>
-                      </>
-                    )}
-                  </button>
-                  
-                  <span className="font-mono text-[10px] sm:text-xs text-gray-500 px-2 py-1 bg-gray-50 rounded truncate max-w-full">
-                    {file.arweaveTxId.substring(0, 12)}...
-                  </span>
-                </div>
-              </div>
-            </div>
-            
-            {/* Share Options - Full width below the columns */}
-            {isAuthenticated && (
-              <div className="mt-3 pt-3 border-t border-gray-100 -mx-3 sm:-mx-4 px-3 sm:px-4">
-                <ShareOptions
-                  arweaveUrl={file.arweaveUrl}
-                  fileId={file.id}
-                  isAuthenticated={isAuthenticated}
-                />
-              </div>
-            )}
-          </motion.div>
+          <FileCard key={file.id} file={file} />
         ))}
       </div>
+
+      {/* Infinite Scroll Trigger */}
+      {hasMore && (
+        <div ref={observerTarget} className="flex justify-center items-center py-8">
+          {loadingMore && (
+            <Loader2 className="animate-spin text-neonPurple" size={24} />
+          )}
+        </div>
+      )}
     </div>
   );
 }
-
