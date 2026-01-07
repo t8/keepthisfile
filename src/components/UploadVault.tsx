@@ -683,8 +683,6 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
                         onLoginRequest={onLoginRequest}
                       />
                     )}
-                    
-                    <UploadProgress progress={100} status="complete" />
                   </motion.div>}
 
                 {/* Success Actions */}
