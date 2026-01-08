@@ -61,4 +61,3 @@ export async function refundPaymentForFailedUpload(sessionId: string): Promise<S
     return null;
   }
 }
-
