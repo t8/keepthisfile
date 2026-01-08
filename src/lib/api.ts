@@ -357,4 +357,32 @@ export async function linkFilesToUser(arweaveUrls: string[]): Promise<ApiRespons
   return await response.json();
 }
 
+// Refund API
+export async function requestRefund(sessionId: string): Promise<ApiResponse<{
+  refundId: string;
+  amount: number;
+  status: string;
+}>> {
+  const token = getAuthToken();
+  if (!token) {
+    return { error: 'Authentication required' };
+  }
+
+  const response = await fetch(`${API_BASE}/payments/refund`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ sessionId }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}: ${response.statusText}` }));
+    return { error: errorData.error || `Failed to request refund with status ${response.status}` };
+  }
+
+  return await response.json();
+}
+
 

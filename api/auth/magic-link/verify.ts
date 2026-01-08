@@ -13,7 +13,7 @@ function getFrontendUrl(req?: VercelRequest): string {
     // For frontend URL, we want to remove /api if present and ensure it's the frontend
     // In production, the base URL should already be the frontend domain
     if (baseUrl.includes('localhost')) {
-      return 'http://localhost:5173';
+      return 'http://localhost:3000';
     }
     return baseUrl;
   }
@@ -27,7 +27,7 @@ function getFrontendUrl(req?: VercelRequest): string {
                      ));
   
   if (isLocalDev) {
-    return 'http://localhost:5173';
+    return 'http://localhost:3000';
   }
   
   // Prioritize NEXT_PUBLIC_BASE_URL (production domain) over VERCEL_URL (deployment URL)
@@ -45,7 +45,7 @@ function getFrontendUrl(req?: VercelRequest): string {
     }
   }
   
-  return 'http://localhost:5173';
+  return 'http://localhost:3000';
 }
 
 

@@ -40,13 +40,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.log('[UPLOAD-SUCCESS] Stripe session status:', stripeSession.payment_status, stripeSession.status);
     } catch (error) {
       console.error('[UPLOAD-SUCCESS] Failed to retrieve Stripe session:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('[UPLOAD-SUCCESS] Stripe error details:', errorMessage);
       return res.status(400).json({ error: 'Invalid session ID' });
     }
 
     // Get upload request
-    const uploadRequest = await getUploadRequestBySessionId(sessionId);
+    let uploadRequest;
+    try {
+      uploadRequest = await getUploadRequestBySessionId(sessionId);
+    } catch (error) {
+      console.error('[UPLOAD-SUCCESS] Failed to get upload request:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('[UPLOAD-SUCCESS] Database error details:', errorMessage);
+      return res.status(500).json({ error: 'Failed to retrieve upload request' });
+    }
     
     if (!uploadRequest) {
+      console.error('[UPLOAD-SUCCESS] Upload request not found for session:', sessionId);
       return res.status(404).json({ error: 'Upload request not found' });
     }
 
@@ -69,8 +80,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Update database if payment is confirmed but status is still pending
     if (isPaid && uploadRequest.status === 'pending') {
       console.log('[UPLOAD-SUCCESS] Payment confirmed, updating database status...');
-      await updateUploadRequestStatus(uploadRequest._id!, 'paid');
-      uploadRequest.status = 'paid';
+      try {
+        if (!uploadRequest._id) {
+          console.error('[UPLOAD-SUCCESS] Upload request missing _id');
+          return res.status(500).json({ error: 'Invalid upload request data' });
+        }
+        await updateUploadRequestStatus(uploadRequest._id, 'paid');
+        uploadRequest.status = 'paid';
+      } catch (error) {
+        console.error('[UPLOAD-SUCCESS] Failed to update upload request status:', error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error('[UPLOAD-SUCCESS] Update error details:', errorMessage);
+        // Don't fail the request if status update fails - payment is still confirmed
+      }
     }
 
     // Return upload request info with actual payment status
@@ -91,8 +113,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Return JSON response (frontend will handle redirect)
     return res.status(200).json(responseData);
   } catch (error) {
-    console.error('[UPLOAD-SUCCESS] Error:', error);
-    return res.status(500).json({ error: 'Failed to verify upload session' });
+    console.error('[UPLOAD-SUCCESS] Unexpected error:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    console.error('[UPLOAD-SUCCESS] Error message:', errorMessage);
+    console.error('[UPLOAD-SUCCESS] Error stack:', errorStack);
+    return res.status(500).json({ 
+      error: 'Failed to verify upload session',
+      details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+    });
   }
 }
 

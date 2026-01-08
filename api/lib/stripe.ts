@@ -19,3 +19,46 @@ export function calculatePrice(sizeBytes: number): number {
   return Math.round(priceUSD * 100);
 }
 
+/**
+ * Refund a payment for a failed upload
+ * @param sessionId - The Stripe checkout session ID
+ * @returns The refund object or null if refund failed
+ */
+export async function refundPaymentForFailedUpload(sessionId: string): Promise<Stripe.Refund | null> {
+  try {
+    console.log('[STRIPE-REFUND] Attempting to refund payment for session:', sessionId);
+    
+    // Retrieve the checkout session to get the payment intent
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    
+    if (!session.payment_intent) {
+      console.error('[STRIPE-REFUND] No payment intent found in session');
+      return null;
+    }
+    
+    const paymentIntentId = typeof session.payment_intent === 'string' 
+      ? session.payment_intent 
+      : session.payment_intent.id;
+    
+    console.log('[STRIPE-REFUND] Creating refund for payment intent:', paymentIntentId);
+    
+    // Create a full refund
+    const refund = await stripe.refunds.create({
+      payment_intent: paymentIntentId,
+      reason: 'requested_by_customer',
+      metadata: {
+        reason: 'upload_failed',
+        session_id: sessionId,
+      },
+    });
+    
+    console.log('[STRIPE-REFUND] Refund created successfully:', refund.id);
+    return refund;
+  } catch (error) {
+    console.error('[STRIPE-REFUND] Failed to create refund:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('[STRIPE-REFUND] Error details:', errorMessage);
+    return null;
+  }
+}
+

@@ -196,8 +196,20 @@ export async function updateUploadRequestStatus(
 ): Promise<void> {
   const client = await clientPromise;
   const db = client.db();
+  
+  // Convert string ID to ObjectId if it's a valid ObjectId format
+  let query: any = { _id: requestId };
+  if (/^[0-9a-fA-F]{24}$/.test(requestId)) {
+    try {
+      query = { _id: new ObjectId(requestId) };
+    } catch (e) {
+      // Invalid ObjectId format, use string query
+      query = { _id: requestId };
+    }
+  }
+  
   await db.collection<UploadRequest>('uploadRequests').updateOne(
-    { _id: requestId },
+    query,
     { $set: { status, updatedAt: new Date() } }
   );
 }

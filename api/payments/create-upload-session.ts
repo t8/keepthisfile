@@ -1,6 +1,7 @@
 import { requireAuth } from '../lib/auth.js';
 import { createUploadRequest } from '../lib/models.js';
 import { stripe, calculatePrice } from '../lib/stripe.js';
+import { getBaseUrlFromRequest } from '../lib/email.js';
 import { FREE_MAX_BYTES, MAX_FILE_BYTES } from '../lib/constants.js';
 import { z } from 'zod';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
@@ -62,10 +63,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const amount = calculatePrice(sizeBytes);
     console.log('[CREATE-UPLOAD-SESSION] Price calculated:', amount, 'cents');
 
-    // Get base URL for redirects
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 
-      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:5173');
-    console.log('[CREATE-UPLOAD-SESSION] Base URL:', baseUrl);
+    // Get base URL for redirects - detect from request headers to ensure localhost stays localhost
+    let baseUrl = getBaseUrlFromRequest(req.headers);
+    
+    // If we're on localhost, always use port 3000 (Vercel dev server port) for redirects
+    // This ensures the redirect goes to the frontend dev server, not the API proxy port
+    if (baseUrl.includes('localhost')) {
+      // Normalize to localhost:3000 for local development (Vercel dev)
+      baseUrl = 'http://localhost:3000';
+    }
+    
+    console.log('[CREATE-UPLOAD-SESSION] Base URL (final):', baseUrl);
+    console.log('[CREATE-UPLOAD-SESSION] Request headers:', {
+      host: req.headers.host,
+      'x-forwarded-proto': req.headers['x-forwarded-proto'],
+      'x-forwarded-host': req.headers['x-forwarded-host'],
+    });
 
     // Create Stripe Checkout Session
     console.log('[CREATE-UPLOAD-SESSION] Creating Stripe checkout session...');

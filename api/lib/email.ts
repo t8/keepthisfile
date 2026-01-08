@@ -45,7 +45,7 @@ export function getBaseUrlFromRequest(headers: { host?: string | string[]; 'x-fo
     }
   }
   
-  return 'http://localhost:5173';
+  return 'http://localhost:3000';
 }
 
 export async function sendMagicLink(email: string, token: string, baseUrl?: string): Promise<void> {
@@ -67,8 +67,8 @@ export async function sendMagicLink(email: string, token: string, baseUrl?: stri
       finalBaseUrl = vercelUrl.startsWith('http') ? vercelUrl : `https://${vercelUrl}`;
     }
   } else {
-    // Local development fallback
-    finalBaseUrl = 'http://localhost:5173';
+    // Local development fallback (Vercel dev uses port 3000)
+    finalBaseUrl = 'http://localhost:3000';
   }
   
   // Ensure no double slashes in URL

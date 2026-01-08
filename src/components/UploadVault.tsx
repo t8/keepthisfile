@@ -5,7 +5,7 @@ import { UploadProgress } from './UploadProgress';
 import { FilePreview } from './FilePreview';
 import { ShareOptions } from './ShareOptions';
 import { FileText, Lock, ShieldCheck, RefreshCw, AlertCircle } from 'lucide-react';
-import { uploadFree, uploadPaid, createUploadSession, getAuthToken, verifyUploadSession } from '../lib/api';
+import { uploadFree, uploadPaid, createUploadSession, getAuthToken, verifyUploadSession, requestRefund } from '../lib/api';
 import { FREE_MAX_BYTES } from '../lib/constants';
 import { useError } from '../contexts/ErrorContext';
 
@@ -36,6 +36,117 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
 
   // Check authentication by checking if token exists (no API call needed)
   const isAuthenticated = !!getAuthToken();
+
+  // IndexedDB helper functions for storing files
+  const storeFileInIndexedDB = async (sessionId: string, file: File): Promise<boolean> => {
+    return new Promise((resolve) => {
+      try {
+        const request = indexedDB.open('UploadVault', 1);
+        
+        request.onerror = () => {
+          console.error('[UPLOAD-VAULT] IndexedDB open error');
+          resolve(false);
+        };
+        
+        request.onsuccess = (event: any) => {
+          const db = event.target.result;
+          const transaction = db.transaction(['files'], 'readwrite');
+          const store = transaction.objectStore('files');
+          
+          const fileData = {
+            sessionId,
+            file: file,
+            timestamp: Date.now(),
+          };
+          
+          const putRequest = store.put(fileData, sessionId);
+          putRequest.onsuccess = () => {
+            console.log('[UPLOAD-VAULT] File stored in IndexedDB for session:', sessionId);
+            resolve(true);
+          };
+          putRequest.onerror = () => {
+            console.error('[UPLOAD-VAULT] IndexedDB put error');
+            resolve(false);
+          };
+        };
+        
+        request.onupgradeneeded = (event: any) => {
+          const db = event.target.result;
+          if (!db.objectStoreNames.contains('files')) {
+            db.createObjectStore('files');
+          }
+        };
+      } catch (error) {
+        console.error('[UPLOAD-VAULT] IndexedDB error:', error);
+        resolve(false);
+      }
+    });
+  };
+
+  const retrieveFileFromIndexedDB = async (sessionId: string): Promise<File | null> => {
+    return new Promise((resolve) => {
+      try {
+        const request = indexedDB.open('UploadVault', 1);
+        
+        request.onerror = () => {
+          console.error('[UPLOAD-VAULT] IndexedDB open error');
+          resolve(null);
+        };
+        
+        request.onsuccess = (event: any) => {
+          const db = event.target.result;
+          const transaction = db.transaction(['files'], 'readonly');
+          const store = transaction.objectStore('files');
+          const getRequest = store.get(sessionId);
+          
+          getRequest.onsuccess = () => {
+            const result = getRequest.result;
+            if (result && result.file) {
+              console.log('[UPLOAD-VAULT] File retrieved from IndexedDB');
+              resolve(result.file);
+            } else {
+              resolve(null);
+            }
+          };
+          
+          getRequest.onerror = () => {
+            console.error('[UPLOAD-VAULT] IndexedDB get error');
+            resolve(null);
+          };
+        };
+        
+        request.onupgradeneeded = (event: any) => {
+          const db = event.target.result;
+          if (!db.objectStoreNames.contains('files')) {
+            db.createObjectStore('files');
+          }
+        };
+      } catch (error) {
+        console.error('[UPLOAD-VAULT] IndexedDB error:', error);
+        resolve(null);
+      }
+    });
+  };
+
+  const deleteFileFromIndexedDB = async (sessionId: string): Promise<void> => {
+    return new Promise((resolve) => {
+      try {
+        const request = indexedDB.open('UploadVault', 1);
+        request.onsuccess = (event: any) => {
+          const db = event.target.result;
+          const transaction = db.transaction(['files'], 'readwrite');
+          const store = transaction.objectStore('files');
+          store.delete(sessionId);
+          transaction.oncomplete = () => resolve();
+          transaction.onerror = () => resolve();
+        };
+        request.onerror = () => resolve();
+      } catch (error) {
+        console.error('[UPLOAD-VAULT] IndexedDB delete error:', error);
+        resolve();
+      }
+    });
+  };
 
   const handleFileSelect = async (file: File) => {
     // Require authentication before allowing any file selection
@@ -85,8 +196,8 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
         }
 
         if (sessionResult.data?.url) {
-          console.log('[UPLOAD-VAULT] Storing file in sessionStorage before payment redirect');
-          // Store file info in sessionStorage so we can retrieve it after payment
+          console.log('[UPLOAD-VAULT] Storing file before payment redirect');
+          // Store file using IndexedDB (more reliable and handles larger files)
           try {
             const fileData = {
               name: file.name,
@@ -94,26 +205,55 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
               type: file.type || 'application/octet-stream',
               sessionId: sessionResult.data.sessionId,
             };
-            sessionStorage.setItem('pending-upload', JSON.stringify(fileData));
             
-            // Store file as base64 in sessionStorage (for files up to a reasonable size)
-            // For very large files, we might need a different approach
-            if (file.size <= 10 * 1024 * 1024) { // 10MB limit for sessionStorage
-              const arrayBuffer = await file.arrayBuffer();
-              const uint8Array = new Uint8Array(arrayBuffer);
-              let binary = '';
-              const chunkSize = 8192;
-              for (let i = 0; i < uint8Array.length; i += chunkSize) {
-                binary += String.fromCharCode.apply(null, Array.from(uint8Array.slice(i, i + chunkSize)));
+            // Try to store in IndexedDB first (more reliable for larger files)
+            let storedSuccessfully = false;
+            try {
+              storedSuccessfully = await storeFileInIndexedDB(sessionResult.data.sessionId, file);
+              if (storedSuccessfully) {
+                console.log('[UPLOAD-VAULT] File stored in IndexedDB');
               }
-              const base64 = btoa(binary);
-              sessionStorage.setItem('pending-upload-file', base64);
-            } else {
-              console.warn('[UPLOAD-VAULT] File too large for sessionStorage, will need user to re-upload');
+            } catch (idbError) {
+              console.warn('[UPLOAD-VAULT] IndexedDB storage failed, trying sessionStorage:', idbError);
+            }
+            
+            // Fallback to sessionStorage if IndexedDB failed
+            if (!storedSuccessfully) {
+              sessionStorage.setItem('pending-upload', JSON.stringify(fileData));
+              
+              // Store file as base64 in sessionStorage (for files up to ~5MB after base64 encoding)
+              if (file.size <= 3 * 1024 * 1024) { // ~3MB raw = ~4MB base64
+                const arrayBuffer = await file.arrayBuffer();
+                const uint8Array = new Uint8Array(arrayBuffer);
+                let binary = '';
+                const chunkSize = 8192;
+                for (let i = 0; i < uint8Array.length; i += chunkSize) {
+                  binary += String.fromCharCode.apply(null, Array.from(uint8Array.slice(i, i + chunkSize)));
+                }
+                const base64 = btoa(binary);
+                sessionStorage.setItem('pending-upload-file', base64);
+                storedSuccessfully = true;
+                console.log('[UPLOAD-VAULT] File stored in sessionStorage');
+              }
+            }
+            
+            if (!storedSuccessfully) {
+              console.error('[UPLOAD-VAULT] Failed to store file - file too large or storage unavailable');
+              // Don't redirect - user should be warned before payment
+              const errorMsg = 'Unable to store file for upload. Please try a smaller file or contact support.';
+              setError(errorMsg);
+              setStatus('error');
+              showError(errorMsg);
+              return;
             }
           } catch (err) {
-            console.error('[UPLOAD-VAULT] Failed to store file in sessionStorage:', err);
-            // Continue anyway - user might need to re-upload
+            console.error('[UPLOAD-VAULT] Failed to store file:', err);
+            // Don't redirect if we can't store the file - prevent payment without file
+            const errorMsg = 'Failed to prepare file for upload. Please try again.';
+            setError(errorMsg);
+            setStatus('error');
+            showError(errorMsg);
+            return;
           }
           
           console.log('[UPLOAD-VAULT] Redirecting to Stripe checkout:', sessionResult.data.url);
@@ -432,46 +572,79 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
           }
         }
 
-        console.log('[UPLOAD-VAULT] Payment verified, retrieving file from sessionStorage...');
+        console.log('[UPLOAD-VAULT] Payment verified, retrieving file...');
         
-        // Try to get file from sessionStorage
-        const pendingUploadStr = sessionStorage.getItem('pending-upload');
-        const pendingFileBase64 = sessionStorage.getItem('pending-upload-file');
-        
-        if (!pendingUploadStr) {
-          console.error('[UPLOAD-VAULT] No pending upload found in sessionStorage');
-          const errorMsg = 'File not found. Please select your file again.';
-          setError(errorMsg);
-          setStatus('error');
-          showError(errorMsg);
-          return;
-        }
-
-        const pendingUpload = JSON.parse(pendingUploadStr);
-        
-        // Reconstruct file from base64
+        // Try to get file from IndexedDB first, then sessionStorage
         let file: File | null = null;
-        if (pendingFileBase64) {
-          try {
-            const binary = atob(pendingFileBase64);
-            const bytes = new Uint8Array(binary.length);
-            for (let i = 0; i < binary.length; i++) {
-              bytes[i] = binary.charCodeAt(i);
+        let pendingUpload: any = null;
+        
+        // Try IndexedDB first
+        file = await retrieveFileFromIndexedDB(sessionId);
+        if (file) {
+          console.log('[UPLOAD-VAULT] File retrieved from IndexedDB');
+          pendingUpload = {
+            name: file.name,
+            size: file.size,
+            type: file.type || 'application/octet-stream',
+          };
+        }
+        
+        // Fallback to sessionStorage
+        if (!file) {
+          console.log('[UPLOAD-VAULT] File not in IndexedDB, trying sessionStorage...');
+          const pendingUploadStr = sessionStorage.getItem('pending-upload');
+          const pendingFileBase64 = sessionStorage.getItem('pending-upload-file');
+          
+          if (pendingUploadStr) {
+            pendingUpload = JSON.parse(pendingUploadStr);
+            
+            if (pendingFileBase64) {
+              try {
+                const binary = atob(pendingFileBase64);
+                const bytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) {
+                  bytes[i] = binary.charCodeAt(i);
+                }
+                const blob = new Blob([bytes], { type: pendingUpload.type });
+                file = new File([blob], pendingUpload.name, { type: pendingUpload.type });
+                console.log('[UPLOAD-VAULT] File reconstructed from sessionStorage');
+              } catch (err) {
+                console.error('[UPLOAD-VAULT] Failed to reconstruct file from sessionStorage:', err);
+              }
             }
-            const blob = new Blob([bytes], { type: pendingUpload.type });
-            file = new File([blob], pendingUpload.name, { type: pendingUpload.type });
-            console.log('[UPLOAD-VAULT] File reconstructed from sessionStorage');
-          } catch (err) {
-            console.error('[UPLOAD-VAULT] Failed to reconstruct file:', err);
           }
         }
 
-        if (!file) {
-          console.error('[UPLOAD-VAULT] Could not reconstruct file');
-          const errorMsg = 'File not found. Please select your file again.';
-          setError(errorMsg);
-          setStatus('error');
-          showError(errorMsg);
+        if (!file || !pendingUpload) {
+          console.error('[UPLOAD-VAULT] Could not retrieve file - issuing refund');
+          
+          // File not found - issue refund since payment was completed
+          try {
+            setStatusMessage('Refunding payment...');
+            const refundResult = await requestRefund(sessionId);
+            
+            if (refundResult.error) {
+              console.error('[UPLOAD-VAULT] Refund request failed:', refundResult.error);
+              const errorMsg = 'File not found and automatic refund failed. Your payment has been processed. Please contact support with your session ID for a refund.';
+              setError(errorMsg);
+              setStatus('error');
+              showError(errorMsg);
+              // Also log session ID for user reference
+              console.error('[UPLOAD-VAULT] Session ID for support:', sessionId);
+            } else {
+              console.log('[UPLOAD-VAULT] Refund issued successfully:', refundResult.data?.refundId);
+              const errorMsg = 'File not found. Your payment has been refunded. Please try uploading again.';
+              setError(errorMsg);
+              setStatus('error');
+              showError(errorMsg);
+            }
+          } catch (refundError) {
+            console.error('[UPLOAD-VAULT] Refund exception:', refundError);
+            const errorMsg = 'File not found. Please contact support for a refund. Your session ID: ' + sessionId.substring(0, 20) + '...';
+            setError(errorMsg);
+            setStatus('error');
+            showError(errorMsg);
+          }
           return;
         }
 
@@ -484,7 +657,8 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
         console.log('[UPLOAD-VAULT] Uploading file after payment...');
         await uploadFile(file, sessionId);
         
-        // Clean up sessionStorage
+        // Clean up storage
+        await deleteFileFromIndexedDB(sessionId);
         sessionStorage.removeItem('pending-upload');
         sessionStorage.removeItem('pending-upload-file');
       } catch (err: any) {
@@ -571,28 +745,30 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
           }} animate={{
             opacity: 1
           }} className="space-y-4 sm:space-y-8">
-                {/* File Info Card */}
-                <motion.div className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-50 rounded-xl border border-gray-100" initial={{
-              y: 20,
-              opacity: 0
-            }} animate={{
-              y: 0,
-              opacity: 1
-            }} transition={{
-              delay: 0.2
-            }}>
-                  <div className="p-2 sm:p-3 bg-white rounded-lg shadow-sm text-neonPurple flex-shrink-0">
-                    <FileText size={20} className="sm:w-6 sm:h-6" />
-                  </div>
-                  <div className="flex-1 min-w-0 overflow-hidden">
-                    <p className="text-xs sm:text-sm font-medium text-gray-900 truncate font-sans">
-                      {fileName}
-                    </p>
-                    <p className="text-[10px] sm:text-xs text-gray-500 font-mono">
-                      {status === 'uploading' ? statusMessage.toUpperCase() : 'SECURELY STORED'}
-                    </p>
-                  </div>
-                </motion.div>
+                {/* File Info Card - Only show during upload, not when complete */}
+                {status !== 'complete' && (
+                  <motion.div className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-50 rounded-xl border border-gray-100" initial={{
+                    y: 20,
+                    opacity: 0
+                  }} animate={{
+                    y: 0,
+                    opacity: 1
+                  }} transition={{
+                    delay: 0.2
+                  }}>
+                    <div className="p-2 sm:p-3 bg-white rounded-lg shadow-sm text-neonPurple flex-shrink-0">
+                      <FileText size={20} className="sm:w-6 sm:h-6" />
+                    </div>
+                    <div className="flex-1 min-w-0 overflow-hidden">
+                      <p className="text-xs sm:text-sm font-medium text-gray-900 truncate font-sans">
+                        {fileName}
+                      </p>
+                      <p className="text-[10px] sm:text-xs text-gray-500 font-mono">
+                        {status === 'uploading' ? statusMessage.toUpperCase() : 'SECURELY STORED'}
+                      </p>
+                    </div>
+                  </motion.div>
+                )}
 
                 {/* Error Display */}
                 {status === 'error' && error && <motion.div initial={{
