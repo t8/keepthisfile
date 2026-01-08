@@ -1,0 +1,14 @@
+{
+  "installCommand": "npm install",
+  "functions": {
+    "api/upload/free.ts": {
+      "maxDuration": 60
+    },
+    "api/upload/paid.ts": {
+      "maxDuration": 60
+    },
+    "api/payments/create-upload-session.ts": {
+      "maxDuration": 30
+    }
+  }
+}

@@ -13,7 +13,15 @@
   },
   "rewrites": [
     {
-      "source": "/((?!api/).*)",
+      "source": "/files",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/terms",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/((?!api/|_next/|.*\\..*|index\\.html).*)",
       "destination": "/index.html"
     }
   ]

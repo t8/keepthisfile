@@ -8,6 +8,10 @@ interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
 
-
-
-
+// Google Analytics types
+declare global {
+  interface Window {
+    dataLayer: any[];
+    gtag: (...args: any[]) => void;
+  }
+}
