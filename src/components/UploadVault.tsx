@@ -8,6 +8,7 @@ import { FileText, Lock, ShieldCheck, RefreshCw, AlertCircle } from 'lucide-reac
 import { uploadFree, uploadPaid, createUploadSession, getAuthToken, verifyUploadSession, requestRefund } from '../lib/api';
 import { FREE_MAX_BYTES } from '../lib/constants';
 import { useError } from '../contexts/ErrorContext';
+import { trackUploadComplete, trackCheckoutStarted, trackPaymentComplete } from '../utils/analytics';
 
 interface UploadResult {
   txId: string;
@@ -257,6 +258,11 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
           }
           
           console.log('[UPLOAD-VAULT] Redirecting to Stripe checkout:', sessionResult.data.url);
+          // Track checkout started
+          trackCheckoutStarted({
+            amount: sessionResult.data.amount || 0,
+            sessionId: sessionResult.data.sessionId,
+          });
           // Redirect to Stripe checkout
           window.location.href = sessionResult.data.url;
           setStatus('payment-required');
@@ -450,6 +456,14 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
         });
         setStatus('complete');
         console.log('State updated to complete');
+
+        // Track upload completion
+        trackUploadComplete({
+          type: sessionId ? 'paid' : 'free',
+          fileSize: fileData.sizeBytes || file.size,
+          fileType: file.type || fileData.mimeType,
+          transactionId: fileData.txId,
+        });
         
         // Store anonymous uploads in localStorage for later linking
         if (!isAuthenticated && fileData.arweaveUrl) {
@@ -573,6 +587,12 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
         }
 
         console.log('[UPLOAD-VAULT] Payment verified, retrieving file...');
+
+        // Track payment complete
+        trackPaymentComplete({
+          amount: verifyResult.data?.amount || 0,
+          sessionId,
+        });
         
         // Try to get file from IndexedDB first, then sessionStorage
         let file: File | null = null;

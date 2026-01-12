@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Mail, Loader2 } from 'lucide-react';
 import { requestMagicLink, getCurrentUser, setAuthToken, getAuthToken, clearAuthToken } from '../lib/api';
 import { useError } from '../contexts/ErrorContext';
+import { trackMagicLinkRequested, trackLogin } from '../utils/analytics';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -66,6 +67,8 @@ export function AuthModal({ isOpen, onClose, onLogin }: AuthModalProps) {
         showError(errorMsg);
       } else {
         setEmailSent(true);
+        // Track magic link requested
+        trackMagicLinkRequested();
         // Start polling for authentication
         startPolling();
       }
@@ -88,6 +91,8 @@ export function AuthModal({ isOpen, onClose, onLogin }: AuthModalProps) {
         setPolling(false);
         setEmailSent(false);
         setEmail('');
+        // Track successful login
+        trackLogin({ method: 'magic-link' });
         onLogin();
         onClose();
       }
@@ -113,6 +118,8 @@ export function AuthModal({ isOpen, onClose, onLogin }: AuthModalProps) {
             setPolling(false);
             setEmailSent(false);
             setEmail('');
+            // Track successful login
+            trackLogin({ method: 'magic-link' });
             onLogin();
             onClose();
           } else {
@@ -140,9 +147,11 @@ export function AuthModal({ isOpen, onClose, onLogin }: AuthModalProps) {
   React.useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('token');
-    
+
     if (token) {
       setAuthToken(token);
+      // Track successful login
+      trackLogin({ method: 'magic-link' });
       onLogin();
       onClose();
     }
