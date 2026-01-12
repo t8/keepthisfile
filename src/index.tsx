@@ -4,6 +4,7 @@ import { render } from "react-dom";
 import { BrowserRouter } from "react-router-dom";
 import { App } from "./App";
 import { ErrorProvider } from "./contexts/ErrorContext";
+import { AnalyticsTracker } from "./components/AnalyticsTracker";
 
 // Load Google Analytics dynamically to avoid Vite parsing issues
 if (typeof window !== 'undefined') {
@@ -25,6 +26,7 @@ if (typeof window !== 'undefined') {
 
 render(
   <BrowserRouter>
+    <AnalyticsTracker />
     <ErrorProvider>
       <App />
     </ErrorProvider>
