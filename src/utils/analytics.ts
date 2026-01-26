@@ -51,12 +51,33 @@ export const trackCheckoutStarted = ({ amount, currency = 'usd', sessionId }: Pa
   });
 };
 
-export const trackPaymentComplete = ({ amount, currency = 'usd', sessionId }: PaymentEventParams) => {
+// Track successful upload as a sale/purchase
+// Free uploads = $0 value, Paid uploads = actual payment amount
+interface UploadSaleParams {
+  type: 'free' | 'paid';
+  amount: number; // in dollars, 0 for free uploads
+  currency?: string;
+  transactionId: string; // Arweave transaction ID
+  fileSize: number;
+  fileType?: string;
+}
+
+export const trackUploadSale = ({ type, amount, currency = 'usd', transactionId, fileSize, fileType }: UploadSaleParams) => {
   trackEvent('purchase', {
     value: amount,
     currency,
-    transaction_id: sessionId,
-    items: [{ item_name: 'file_storage', price: amount }],
+    transaction_id: transactionId,
+    items: [{
+      item_id: transactionId,
+      item_name: type === 'free' ? 'free_file_storage' : 'paid_file_storage',
+      item_category: type,
+      price: amount,
+      quantity: 1,
+    }],
+    // Custom dimensions for analysis
+    upload_type: type,
+    file_size: fileSize,
+    file_type: fileType,
   });
 };
 

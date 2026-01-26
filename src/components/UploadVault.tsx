@@ -8,7 +8,7 @@ import { FileText, Lock, ShieldCheck, RefreshCw, AlertCircle } from 'lucide-reac
 import { uploadFree, uploadPaid, createUploadSession, getAuthToken, verifyUploadSession, requestRefund } from '../lib/api';
 import { FREE_MAX_BYTES } from '../lib/constants';
 import { useError } from '../contexts/ErrorContext';
-import { trackUploadComplete, trackCheckoutStarted, trackPaymentComplete } from '../utils/analytics';
+import { trackUploadComplete, trackCheckoutStarted, trackUploadSale } from '../utils/analytics';
 
 interface UploadResult {
   txId: string;
@@ -289,8 +289,8 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
     }
   };
 
-  const uploadFile = async (file: File, sessionId: string | null) => {
-    console.log('uploadFile called with:', { fileName: file.name, sessionId });
+  const uploadFile = async (file: File, sessionId: string | null, paymentAmount: number = 0) => {
+    console.log('uploadFile called with:', { fileName: file.name, sessionId, paymentAmount });
     setStatus('uploading');
     setProgress(0);
     setStatusMessage('Preparing file...');
@@ -464,6 +464,15 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
           fileType: file.type || fileData.mimeType,
           transactionId: fileData.txId,
         });
+
+        // Track as a sale/purchase (free = $0, paid = actual amount)
+        trackUploadSale({
+          type: sessionId ? 'paid' : 'free',
+          amount: paymentAmount,
+          transactionId: fileData.txId,
+          fileSize: fileData.sizeBytes || file.size,
+          fileType: file.type || fileData.mimeType,
+        });
         
         // Store anonymous uploads in localStorage for later linking
         if (!isAuthenticated && fileData.arweaveUrl) {
@@ -588,12 +597,9 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
 
         console.log('[UPLOAD-VAULT] Payment verified, retrieving file...');
 
-        // Track payment complete
-        trackPaymentComplete({
-          amount: verifyResult.data?.amount || 0,
-          sessionId,
-        });
-        
+        // Store payment amount to pass to uploadFile for tracking
+        const paymentAmount = verifyResult.data?.amount || 0;
+
         // Try to get file from IndexedDB first, then sessionStorage
         let file: File | null = null;
         let pendingUpload: any = null;
@@ -673,9 +679,9 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
         setSelectedFile(file);
         setFileMimeType(file.type || 'application/octet-stream');
 
-        // Upload the file
+        // Upload the file with payment amount for analytics
         console.log('[UPLOAD-VAULT] Uploading file after payment...');
-        await uploadFile(file, sessionId);
+        await uploadFile(file, sessionId, paymentAmount);
         
         // Clean up storage
         await deleteFileFromIndexedDB(sessionId);
