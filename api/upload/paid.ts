@@ -1,7 +1,7 @@
 import { requireAuth } from '../lib/auth.js';
 import { uploadToArweave } from '../lib/arweave.js';
 import { createFile, getUploadRequestBySessionId, updateUploadRequestStatus } from '../lib/models.js';
-import { refundPaymentForFailedUpload } from '../lib/stripe.js';
+import { refundPaymentForFailedUpload, attachArweaveTxToPayment } from '../lib/stripe.js';
 import { MAX_FILE_BYTES } from '../lib/constants.js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
@@ -123,8 +123,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
       console.log('[UPLOAD-PAID] File record saved:', fileRecord._id);
 
-      // Update upload request status to uploaded
-      await updateUploadRequestStatus(uploadRequest._id!, 'uploaded');
+      // Update upload request status to uploaded with Arweave tx ID
+      await updateUploadRequestStatus(uploadRequest._id!, 'uploaded', txId);
+
+      // Attach Arweave tx ID to the Stripe PaymentIntent metadata
+      if (sessionId) {
+        await attachArweaveTxToPayment(sessionId, txId);
+      }
 
       return res.status(200).json({
         success: true,

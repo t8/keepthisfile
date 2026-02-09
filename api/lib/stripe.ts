@@ -20,6 +20,37 @@ export function calculatePrice(sizeBytes: number): number {
 }
 
 /**
+ * Attach Arweave transaction ID to a Stripe PaymentIntent's metadata
+ * @param sessionId - The Stripe checkout session ID
+ * @param arweaveTxId - The Arweave transaction ID to attach
+ */
+export async function attachArweaveTxToPayment(sessionId: string, arweaveTxId: string): Promise<void> {
+  try {
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+    if (!session.payment_intent) {
+      console.error('[STRIPE] No payment intent found for session:', sessionId);
+      return;
+    }
+
+    const paymentIntentId = typeof session.payment_intent === 'string'
+      ? session.payment_intent
+      : session.payment_intent.id;
+
+    await stripe.paymentIntents.update(paymentIntentId, {
+      metadata: {
+        arweave_tx_id: arweaveTxId,
+        arweave_url: `https://arweave.net/${arweaveTxId}`,
+      },
+    });
+
+    console.log('[STRIPE] Attached Arweave tx to payment intent:', { paymentIntentId, arweaveTxId });
+  } catch (error) {
+    console.error('[STRIPE] Failed to attach Arweave tx to payment:', error);
+  }
+}
+
+/**
  * Refund a payment for a failed upload
  * @param sessionId - The Stripe checkout session ID
  * @returns The refund object or null if refund failed

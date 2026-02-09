@@ -26,6 +26,7 @@ export interface UploadRequest {
   expectedSizeBytes: number;
   stripeSessionId?: string;
   paymentIntentId?: string;
+  arweaveTxId?: string;
   status: 'pending' | 'paid' | 'uploaded' | 'failed';
   createdAt: Date;
   updatedAt: Date;
@@ -192,11 +193,12 @@ export async function getUploadRequestBySessionId(
 
 export async function updateUploadRequestStatus(
   requestId: string,
-  status: UploadRequest['status']
+  status: UploadRequest['status'],
+  arweaveTxId?: string
 ): Promise<void> {
   const client = await clientPromise;
   const db = client.db();
-  
+
   // Convert string ID to ObjectId if it's a valid ObjectId format
   let query: any = { _id: requestId };
   if (/^[0-9a-fA-F]{24}$/.test(requestId)) {
@@ -207,10 +209,15 @@ export async function updateUploadRequestStatus(
       query = { _id: requestId };
     }
   }
-  
+
+  const updateFields: Record<string, any> = { status, updatedAt: new Date() };
+  if (arweaveTxId) {
+    updateFields.arweaveTxId = arweaveTxId;
+  }
+
   await db.collection<UploadRequest>('uploadRequests').updateOne(
     query,
-    { $set: { status, updatedAt: new Date() } }
+    { $set: updateFields }
   );
 }
 

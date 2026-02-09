@@ -175,6 +175,11 @@ function makeUserFriendly(error: string): string {
     return 'Your session has expired. Please sign in again.';
   }
 
+  // File size errors - preserve the specific size limit message
+  if (error.includes('File too large') || error.includes('Maximum upload size')) {
+    return error;
+  }
+
   // Upload errors - but preserve our specific messages
   if (error.includes('Your file is greater than 100kb')) {
     return error; // Preserve our specific message
@@ -182,10 +187,6 @@ function makeUserFriendly(error: string): string {
 
   if (error.includes('Upload failed') || (error.includes('upload') && !error.includes('Please sign in'))) {
     return 'Failed to upload file. Please check your connection and try again.';
-  }
-
-  if (error.includes('File too large') || (error.includes('size') && !error.includes('100kb'))) {
-    return 'The file is too large. Please choose a smaller file.';
   }
 
   // Payment errors

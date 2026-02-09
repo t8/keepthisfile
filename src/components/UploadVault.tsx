@@ -6,7 +6,7 @@ import { FilePreview } from './FilePreview';
 import { ShareOptions } from './ShareOptions';
 import { FileText, Lock, ShieldCheck, RefreshCw, AlertCircle } from 'lucide-react';
 import { uploadFree, uploadPaid, createUploadSession, getAuthToken, verifyUploadSession, requestRefund } from '../lib/api';
-import { FREE_MAX_BYTES } from '../lib/constants';
+import { FREE_MAX_BYTES, MAX_FILE_BYTES } from '../lib/constants';
 import { useError } from '../contexts/ErrorContext';
 import { trackUploadComplete, trackCheckoutStarted, trackUploadSale } from '../utils/analytics';
 
@@ -164,6 +164,18 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
     setStatus('idle');
 
     const fileSize = file.size;
+
+    // Check if file exceeds max upload size
+    if (fileSize > MAX_FILE_BYTES) {
+      const maxMB = Math.round(MAX_FILE_BYTES / (1024 * 1024));
+      const errorMsg = `File too large. Maximum upload size is ${maxMB}MB.`;
+      setError(errorMsg);
+      setStatus('idle');
+      showError(errorMsg);
+      setSelectedFile(null);
+      setFileName('');
+      return;
+    }
 
     // Check if file exceeds free tier
     if (fileSize > FREE_MAX_BYTES) {

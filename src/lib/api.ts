@@ -1,3 +1,5 @@
+import { MAX_FILE_BYTES } from './constants';
+
 const API_BASE = import.meta.env.VITE_API_BASE || '/api';
 
 export interface ApiResponse<T> {
@@ -54,6 +56,11 @@ export async function uploadFree(file: File): Promise<ApiResponse<{
     fileName: string;
   };
 }>> {
+  const maxMB = Math.round(MAX_FILE_BYTES / (1024 * 1024));
+  if (file.size > MAX_FILE_BYTES) {
+    return { error: `File too large. Maximum upload size is ${maxMB}MB.` };
+  }
+
   try {
     console.log('Converting file to base64...', { name: file.name, size: file.size, type: file.type });
     
@@ -222,9 +229,14 @@ export async function uploadPaid(file: File, sessionId: string): Promise<ApiResp
     fileName: string;
   };
 }>> {
+  const maxMB = Math.round(MAX_FILE_BYTES / (1024 * 1024));
+  if (file.size > MAX_FILE_BYTES) {
+    return { error: `File too large. Maximum upload size is ${maxMB}MB.` };
+  }
+
   try {
     console.log('Converting file to base64 for paid upload...', { name: file.name, size: file.size, type: file.type });
-    
+
     // Convert file to base64 (handle large files properly)
     const arrayBuffer = await file.arrayBuffer();
     const uint8Array = new Uint8Array(arrayBuffer);
