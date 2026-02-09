@@ -27,6 +27,8 @@ export interface UploadRequest {
   stripeSessionId?: string;
   paymentIntentId?: string;
   arweaveTxId?: string;
+  tempWalletAddress?: string;
+  creditShareExpiry?: Date;
   status: 'pending' | 'paid' | 'uploaded' | 'failed';
   createdAt: Date;
   updatedAt: Date;
@@ -225,6 +227,29 @@ export async function getUploadRequestById(requestId: string): Promise<UploadReq
   const client = await clientPromise;
   const db = client.db();
   return await db.collection<UploadRequest>('uploadRequests').findOne({ _id: requestId });
+}
+
+export async function updateUploadRequestTempWallet(
+  requestId: string,
+  tempWalletAddress: string,
+  creditShareExpiry: Date
+): Promise<void> {
+  const client = await clientPromise;
+  const db = client.db();
+
+  let query: any = { _id: requestId };
+  if (/^[0-9a-fA-F]{24}$/.test(requestId)) {
+    try {
+      query = { _id: new ObjectId(requestId) };
+    } catch (e) {
+      query = { _id: requestId };
+    }
+  }
+
+  await db.collection<UploadRequest>('uploadRequests').updateOne(
+    query,
+    { $set: { tempWalletAddress, creditShareExpiry, updatedAt: new Date() } }
+  );
 }
 
 

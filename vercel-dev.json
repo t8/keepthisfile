@@ -7,8 +7,17 @@
     "api/upload/paid.ts": {
       "maxDuration": 60
     },
+    "api/upload/authorize.ts": {
+      "maxDuration": 30
+    },
+    "api/upload/confirm.ts": {
+      "maxDuration": 30
+    },
     "api/payments/create-upload-session.ts": {
       "maxDuration": 30
+    },
+    "api/cron/topup-turbo.ts": {
+      "maxDuration": 60
     }
   }
 }

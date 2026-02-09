@@ -1,9 +1,15 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { nodePolyfills } from 'vite-plugin-node-polyfills'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    nodePolyfills({
+      globals: { Buffer: true, global: true, process: true },
+    }),
+  ],
   // Note: When using `vercel dev`, API routes are automatically handled by Vercel
   // No proxy needed - Vercel dev serves both frontend and API routes
   // If running Vite standalone (npm run dev), you'll need to run `vercel dev --listen 3000` separately

@@ -6,6 +6,7 @@ import { FREE_MAX_BYTES } from './constants.js';
 // Cache only the wallet (static data) - NOT the SDK instances
 // SDK instances maintain HTTP connections that can keep serverless functions alive
 let cachedWallet: JWKInterface | null = null;
+let cachedMasterAddress: string | null = null;
 
 function getWallet(): JWKInterface {
   if (!cachedWallet && process.env.ARWEAVE_KEY_JSON) {
@@ -16,12 +17,62 @@ function getWallet(): JWKInterface {
       throw new Error('Invalid ARWEAVE_KEY_JSON format');
     }
   }
-  
+
   if (!cachedWallet) {
     throw new Error('ARWEAVE_KEY_JSON environment variable is required');
   }
-  
+
   return cachedWallet;
+}
+
+export async function getMasterWalletAddress(): Promise<string> {
+  if (cachedMasterAddress) return cachedMasterAddress;
+  const wallet = getWallet();
+  const arweave = createArweaveInstance();
+  cachedMasterAddress = await arweave.wallets.jwkToAddress(wallet);
+  return cachedMasterAddress;
+}
+
+export async function generateTempWallet(): Promise<{ jwk: JWKInterface; address: string }> {
+  const arweave = createArweaveInstance();
+  const jwk = await arweave.wallets.generate();
+  const address = await arweave.wallets.jwkToAddress(jwk);
+  return { jwk, address };
+}
+
+export async function shareCreditsWithTempWallet(
+  tempAddress: string,
+  approvedWincAmount: string,
+  expiresBySeconds: number = 600
+): Promise<void> {
+  const turbo = createTurboInstance();
+  await turbo.shareCredits({
+    approvedAddress: tempAddress,
+    approvedWincAmount,
+    expiresBySeconds,
+  });
+  console.log(`[ARWEAVE] Shared ${approvedWincAmount} winc with ${tempAddress}, expires in ${expiresBySeconds}s`);
+}
+
+export async function revokeSharedCredits(tempAddress: string): Promise<void> {
+  try {
+    const turbo = createTurboInstance();
+    await turbo.revokeCredits({
+      revokedAddress: tempAddress,
+    });
+    console.log(`[ARWEAVE] Revoked credits for ${tempAddress}`);
+  } catch (error) {
+    console.error(`[ARWEAVE] Failed to revoke credits for ${tempAddress}:`, error);
+  }
+}
+
+export async function getUploadCostInWinc(fileSize: number): Promise<string> {
+  const turbo = createTurboInstance();
+  const [cost] = await turbo.getUploadCosts({ bytes: [fileSize] });
+  // Add 20% buffer for safety
+  const wincAmount = BigInt(cost.winc);
+  const buffered = wincAmount + (wincAmount * BigInt(20)) / BigInt(100);
+  return buffered.toString();
 }
 
 // Create fresh Turbo instance each request to avoid connection pooling issues

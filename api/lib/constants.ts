@@ -1,7 +1,7 @@
 // File size limits
 export const FREE_MAX_BYTES = 100 * 1024; // 100KB
-// Vercel serverless functions have a 4.5MB request body limit.
-// Files are sent as base64 JSON (~33% overhead), so max raw file size is ~3.3MB.
-// Using 3MB as a safe limit with margin for JSON envelope overhead.
-export const MAX_FILE_BYTES = parseInt(process.env.MAX_FILE_BYTES || String(3 * 1024 * 1024)); // 3MB default, env var is in bytes
+// With direct client-to-Arweave uploads, files bypass Vercel body limit entirely.
+// The old 3MB limit only applies to the legacy server-side upload path (api/upload/paid).
+// For the new direct upload path, files can be much larger.
+export const MAX_FILE_BYTES = parseInt(process.env.MAX_FILE_BYTES || String(100 * 1024 * 1024)); // 100MB default, env var is in bytes
 

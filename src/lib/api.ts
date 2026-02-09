@@ -278,6 +278,117 @@ export async function uploadPaid(file: File, sessionId: string): Promise<ApiResp
   }
 }
 
+// Direct upload to Arweave (bypasses Vercel body limit)
+export async function uploadDirect(
+  file: File,
+  sessionId: string,
+  onProgress?: (pct: number) => void
+): Promise<ApiResponse<{
+  file: {
+    id: string;
+    txId: string;
+    arweaveUrl: string;
+    sizeBytes: number;
+    fileName: string;
+  };
+}>> {
+  try {
+    const token = getAuthToken();
+    if (!token) {
+      return { error: 'Authentication required' };
+    }
+
+    // Step 1: Get temp wallet from server
+    console.log('[DIRECT-UPLOAD] Requesting upload authorization...');
+    onProgress?.(5);
+
+    const authResp = await fetch(`${API_BASE}/upload/authorize`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        fileName: file.name,
+        fileSize: file.size,
+        mimeType: file.type || 'application/octet-stream',
+        sessionId,
+      }),
+    });
+
+    if (!authResp.ok) {
+      const errorData = await authResp.json().catch(() => ({ error: `HTTP ${authResp.status}` }));
+      return { error: errorData.error || 'Failed to authorize upload' };
+    }
+
+    const authData = await authResp.json();
+    if (!authData.success || !authData.data?.tempJwk) {
+      return { error: authData.error || 'Failed to get upload authorization' };
+    }
+
+    const { tempJwk, masterAddress } = authData.data;
+    console.log('[DIRECT-UPLOAD] Authorization received, uploading to Arweave...');
+    onProgress?.(15);
+
+    // Step 2: Upload directly to Turbo using the temp wallet
+    const { TurboFactory, ArweaveSigner } = await import('@ardrive/turbo-sdk/web');
+
+    const signer = new ArweaveSigner(tempJwk);
+    const turbo = TurboFactory.authenticated({ signer });
+
+    const result = await turbo.uploadFile({
+      fileStreamFactory: () => file.stream() as any,
+      fileSizeFactory: () => file.size,
+      dataItemOpts: {
+        tags: [
+          { name: 'Content-Type', value: file.type || 'application/octet-stream' },
+          { name: 'App-Name', value: 'KeepThisFile' },
+          { name: 'Original-Filename', value: file.name },
+        ],
+        paidBy: [masterAddress],
+      },
+    });
+
+    console.log('[DIRECT-UPLOAD] Upload complete, tx:', result.id);
+    onProgress?.(85);
+
+    // Step 3: Confirm upload with server
+    console.log('[DIRECT-UPLOAD] Confirming upload with server...');
+    const confirmResp = await fetch(`${API_BASE}/upload/confirm`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        arweaveTxId: result.id,
+        fileName: file.name,
+        fileSize: file.size,
+        mimeType: file.type || 'application/octet-stream',
+        sessionId,
+      }),
+    });
+
+    onProgress?.(95);
+
+    if (!confirmResp.ok) {
+      const errorData = await confirmResp.json().catch(() => ({ error: `HTTP ${confirmResp.status}` }));
+      return { error: errorData.error || 'Upload succeeded but confirmation failed' };
+    }
+
+    const confirmData = await confirmResp.json();
+    onProgress?.(100);
+    console.log('[DIRECT-UPLOAD] Upload confirmed:', confirmData);
+
+    return confirmData;
+  } catch (error: any) {
+    console.error('[DIRECT-UPLOAD] Exception:', error);
+    return {
+      error: error.message || 'Direct upload failed. Please try again.',
+    };
+  }
+}
+
 // Files API
 export async function getUserFiles(limit?: number, offset?: number): Promise<ApiResponse<{
   files: Array<{

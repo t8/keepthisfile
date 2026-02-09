@@ -5,7 +5,7 @@ import { UploadProgress } from './UploadProgress';
 import { FilePreview } from './FilePreview';
 import { ShareOptions } from './ShareOptions';
 import { FileText, Lock, ShieldCheck, RefreshCw, AlertCircle } from 'lucide-react';
-import { uploadFree, uploadPaid, createUploadSession, getAuthToken, verifyUploadSession, requestRefund } from '../lib/api';
+import { uploadFree, uploadDirect, createUploadSession, getAuthToken, verifyUploadSession, requestRefund } from '../lib/api';
 import { FREE_MAX_BYTES, MAX_FILE_BYTES } from '../lib/constants';
 import { useError } from '../contexts/ErrorContext';
 import { trackUploadComplete, trackCheckoutStarted, trackUploadSale } from '../utils/analytics';
@@ -403,11 +403,20 @@ export function UploadVault({ onUploadSuccess, onLoginRequest }: UploadVaultProp
 
     try {
       let result;
-      
+
       if (sessionId) {
-        // Paid upload
-        console.log('Calling uploadPaid...');
-        result = await uploadPaid(file, sessionId);
+        // Paid upload — use direct client-to-Arweave upload
+        console.log('Calling uploadDirect...');
+        progressState.clearAll();
+        setStatusMessage('Authorizing upload...');
+        result = await uploadDirect(file, sessionId, (pct) => {
+          progressState.currentProgress = pct;
+          setProgress(pct);
+          if (pct < 15) setStatusMessage('Authorizing upload...');
+          else if (pct < 85) setStatusMessage('Uploading to Arweave...');
+          else if (pct < 100) setStatusMessage('Confirming upload...');
+          else setStatusMessage('Finalizing...');
+        });
       } else {
         // Free upload
         console.log('Calling uploadFree...');
